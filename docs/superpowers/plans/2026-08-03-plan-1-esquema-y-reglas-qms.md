@@ -1814,4 +1814,5 @@ Puntos donde el procedimiento admite más de una lectura y el POC eligió una. C
 3. **Doble numeración 4.5** en el documento original, resuelta como `4.5a` / `4.5b`.
 4. **Formato del número de cotización:** el documento muestra `XXXXQXXXXX` pero el texto dice "letra P". Se usó `Q`.
 5. **El SLA de 4 días hábiles es un promedio**, no un plazo por solicitud. El dashboard debe medir la media.
+6. **El borde de igualdad en el punto 4.1.** El procedimiento define solo los casos "menor" (declina) y "mayor" (pide LT al planner), y deja sin cubrir qué ocurre cuando la cantidad **iguala** exactamente al stock. El POC lo resuelve como declinar (`cantidad <= stock`), por el mismo razonamiento del caso "menor": si el stock cubre la cantidad exacta, el producto ya estaba disponible en WCL y la cotización era innecesaria. Es defendible pero es una interpretación, no una lectura literal — confirmar con SKF.
 
