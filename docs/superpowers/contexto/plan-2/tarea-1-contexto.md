@@ -1,7 +1,11 @@
 # Tarea 1 — Generador determinista y cargador masivo
 
 ## Estado
-completa · commits c252f6f..f25f748 (incluye la ronda de arreglo 1: `escapar()` con soporte jsonb, guarda de números no finitos, guardas de listas vacías en `elegir`/`elegirPonderado`)
+completa
+
+No cites el hash de tu propio commit: el archivo va dentro de ese commit y no
+puedes conocerlo al escribirlo. Para ubicar el trabajo basta con
+`git log --oneline -- scripts/seed/aleatorio.ts scripts/seed/aleatorio.test.ts scripts/seed/cargador.ts`.
 
 ## Qué entrega esta tarea
 Dos cimientos que consumirán las nueve tareas siguientes del Plan 2: un PRNG determinista (`mulberry32`) en `scripts/seed/aleatorio.ts` para generar todo el catálogo sintético de forma reproducible, y un cargador masivo por `COPY` en `scripts/seed/cargador.ts` para insertar filas en la base de Supabase cloud a velocidad de miles de filas por segundo.

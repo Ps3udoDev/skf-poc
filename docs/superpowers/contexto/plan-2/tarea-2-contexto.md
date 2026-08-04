@@ -1,7 +1,11 @@
 # Tarea 2 — Catálogo de plantas (PDIV)
 
 ## Estado
-completa · commit fed86d2
+completa
+
+No cites el hash de tu propio commit: el archivo va dentro de ese commit y no
+puedes conocerlo al escribirlo. Para ubicar el trabajo basta con
+`git log --oneline -- scripts/seed/plantas.ts scripts/seed/plantas.test.ts`.
 
 ## Qué entrega esta tarea
 El catálogo fijo de 18 plantas de manufactura de SKF con sus ventanas diarias de mantenimiento. Expone `PLANTAS: readonly PlantaSemilla[]` (array de 18 objetos inmutables, cada uno con código PDIV, nombre, país, zona horaria, estado de conectividad, y configuración de ventana de actualización de software), y la función `filasPlantas(): unknown[][]` que los serializa en 18 filas de 11 columnas para inserciones directas en la tabla `plantas` de la base de Supabase.
