@@ -1,5 +1,6 @@
 import { completacionesDe, obtenerDesignacion, obtenerVarias, similaresA } from "@/lib/fuentes";
 import { normalizar, variantesConfusion } from "./normalizar";
+import { elegirDelConjunto } from "./respaldo-llm";
 import { construirSugerencia, construirVarias } from "./sugerencia";
 import type { ResultadoValidacion } from "./tipos";
 
@@ -19,7 +20,8 @@ export const VECINOS_NORMALIZADOS = 12;
  *
  * La estrategia 5 (similitud semántica sobre la descripción) queda reservada
  * para la versión 2: exige pgvector y a la escala de este catálogo no aporta
- * sobre los trigramas. La estrategia 6 (respaldo con LLM) la añade la tarea 8.
+ * sobre los trigramas. La estrategia 6 es el respaldo con LLM sobre un
+ * conjunto cerrado de candidatos (`respaldo-llm.ts`).
  */
 export async function validar(consulta: string, cantidad: number): Promise<ResultadoValidacion> {
   const limpia = consulta.trim();
@@ -121,6 +123,36 @@ export async function validar(consulta: string, cantidad: number): Promise<Resul
         cantidad,
       ),
     };
+  }
+
+  // ── 6. Respaldo con LLM sobre conjunto cerrado ────────────────────────────
+  // Solo se llega aquí si las cuatro estrategias deterministas fallaron. Los
+  // candidatos salen de la base: el modelo elige, nunca inventa. La búsqueda
+  // del conjunto usa la forma normalizada, no la captura: si el texto original
+  // ni siquiera pasó el umbral de trigramas, la versión normalizada tiene más
+  // posibilidades de traer candidatos. El conjunto es más amplio que el que se
+  // muestra en pantalla, porque el modelo elige mejor con más contexto.
+  const conjunto = await similaresA(normalizada, 12);
+  if (conjunto.length > 0) {
+    const eleccion = await elegirDelConjunto(
+      limpia,
+      conjunto.map((c) => c.designacion),
+    );
+    if (eleccion) {
+      const sugerencia = await construirSugerencia(eleccion.codigo, cantidad, 0.5);
+      if (sugerencia) {
+        // TODO(tarea 6): emitir el evento `llamada_modelo` en `eventos_demo`
+        // cuando exista `lib/metricas/emitir`; el brief de esta tarea lo
+        // importaba de ahí, pero ese módulo aún no existe en el repo.
+        return {
+          consulta,
+          tipo: "similar",
+          estrategia: "llm",
+          mensaje: eleccion.explicacion,
+          candidatos: [sugerencia],
+        };
+      }
+    }
   }
 
   return {
