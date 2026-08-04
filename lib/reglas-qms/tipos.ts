@@ -98,7 +98,8 @@ export type TipoAviso =
   | "pack_quantity_ajustado"
   | "nueva_creacion"
   | "validar_con_ingeniero_ventas"
-  | "precio_requiere_lpc";
+  | "precio_requiere_lpc"
+  | "precio_bajo_spq";
 
 export interface Aviso {
   tipo: TipoAviso;

@@ -542,7 +542,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      buscar_por_prefijo: {
+        Args: { limite?: number; prefijo: string }
+        Returns: {
+          designacion: string
+        }[]
+      }
+      buscar_similares: {
+        Args: { consulta: string; limite?: number }
+        Returns: {
+          designacion: string
+          puntaje: number
+        }[]
+      }
     }
     Enums: {
       almacen_codigo: "PS" | "SL" | "XX"

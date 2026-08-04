@@ -111,11 +111,11 @@ export function evaluarSolicitud(ctx: ContextoSolicitud): EvaluacionQMS {
   const avisoPack = avisoPackQuantity(efectiva, cantidad);
   if (avisoPack) avisos.push(avisoPack);
 
-  // 4.9 y 5.3 — avisos que se acumulan sin alterar la ruta.
+  // 4.9 y 5.2/5.3 — avisos que se acumulan sin alterar la ruta.
   const avisoCreacion = avisoNuevaCreacion(efectiva);
   if (avisoCreacion) avisos.push(avisoCreacion);
-  const avisoLpc = avisoPrecio(efectiva);
-  if (avisoLpc) avisos.push(avisoLpc);
+  const avisoDePrecio = avisoPrecio(efectiva);
+  if (avisoDePrecio) avisos.push(avisoDePrecio);
 
   const semanasExtraTE = semanasExtraPorNuevaCreacion(efectiva);
 

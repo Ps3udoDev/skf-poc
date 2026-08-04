@@ -24,16 +24,33 @@ export function avisoNuevaCreacion(d: Designacion): Aviso | null {
 }
 
 /**
- * Punto 5.3 — FPC2 no es producto de línea: hay que pedir el PS/LPC a fábrica
- * antes de poder cotizar el precio. Explica por qué algunos precios tardan.
+ * Puntos 5.2 y 5.3 — las dos razones por las que una designación puede no
+ * tener precio en pantalla.
+ *
+ * 5.3, FPC 2: no es producto de línea; el precio sale del LPC de la fábrica.
+ * 5.2, FPC 1 sin Precio de Lista: "si no tenemos precio se cotiza bajo los
+ * parámetros de SPQ+". Es un producto de línea al que le falta el precio, no un
+ * producto fuera de línea: la salida del procedimiento es distinta y el CSR
+ * necesita distinguirlas.
  */
 export function avisoPrecio(d: Designacion): Aviso | null {
-  if (d.fpc !== "2") return null;
-  return {
-    tipo: "precio_requiere_lpc",
-    punto: "5.3",
-    mensaje:
-      "Producto fuera de línea (FPC 2): el precio requiere el LPC de la fábrica " +
-      "y el cálculo posterior en SPQ+.",
-  };
+  if (d.fpc === "2") {
+    return {
+      tipo: "precio_requiere_lpc",
+      punto: "5.3",
+      mensaje:
+        "Producto fuera de línea (FPC 2): el precio requiere el LPC de la fábrica " +
+        "y el cálculo posterior en SPQ+.",
+    };
+  }
+  if (d.precioLista === null) {
+    return {
+      tipo: "precio_bajo_spq",
+      punto: "5.2",
+      mensaje:
+        "Producto de línea (FPC 1) sin Precio de Lista publicado: se cotiza bajo " +
+        "los parámetros de SPQ+.",
+    };
+  }
+  return null;
 }
