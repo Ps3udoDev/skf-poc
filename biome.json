@@ -13,7 +13,8 @@
       "!**/.next",
       "!**/supabase/.temp",
       "!public",
-      "!**/*.css"
+      "!**/*.css",
+      "!lib/supabase/tipos.ts"
     ]
   },
   "formatter": {
