@@ -17,7 +17,7 @@
 - **SLA:** 4 días hábiles es un **promedio** de todas las cotizaciones, no un plazo por solicitud. Nunca implementarlo como deadline individual.
 - **`PS` está sobrecargado** en el QMS: *Performance Standard* (costo) y *Almacén Primario*. En el código el almacén se nombra `almacen_ps`; el costo, si aparece, `performance_standard`.
 - **Formato de cotización:** `AAAAQ#####` (año + `Q` + consecutivo de 5 dígitos).
-- **Linter:** Biome. `pnpm lint` debe pasar antes de cada commit.
+- **Linter:** Biome. `pnpm lint` debe pasar antes de cada commit. Biome aplica `organizeImports`, así que **reordenará los imports** de los bloques de código de este plan. Ese reordenamiento es el comportamiento esperado, **no** una desviación del brief: los bloques de código fijan el contenido, Biome fija el formato. Lo mismo aplica a comillas, comas finales y saltos de línea.
 - **Migraciones:** nunca editar una migración ya aplicada. Siempre crear una nueva.
 - **Convención de nombres entre capas:** la base usa `snake_case` (`pack_quantity`, `es_nueva_creacion`) y el dominio TypeScript usa `camelCase` (`packQuantity`, `esNuevaCreacion`). La conversión se hace en un único punto — la función `aDesignacion()` que se crea en el Plan 3, capa `lib/fuentes`. **Ningún módulo de `lib/reglas-qms` debe conocer los nombres de columna.**
 
