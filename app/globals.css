@@ -1,26 +1,123 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * No hay tema oscuro (ver contexto de la tarea 1). Esto NO activa un tema
+ * oscuro: solo redefine cuándo dispara el prefijo `dark:` que trae el código
+ * vendorizado de components/ui, para que dependa de una clase `.dark` que
+ * esta app nunca aplica — en vez del valor por defecto de Tailwind, que
+ * dispara con `prefers-color-scheme: dark` del sistema operativo. Sin esto,
+ * una laptop en modo oscuro alteraría la demo en la sala de juntas.
+ */
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /*
+   * Radio base que consumen las primitivas de components/ui (button, badge,
+   * card...) a través de --radius-sm/md/lg/xl/4xl más abajo. No es un valor
+   * de marca del doc 06, solo controla el redondeo de esquinas.
+   */
+  --radius: 0.5rem;
+
+  --fondo: #ffffff;
+  --fondo-sutil: #f4f5f7;
+  --texto: #16181d;
+  --texto-tenue: #5b6270;
+  --borde: #d9dce2;
+
+  /* Azul profundo: color primario, acciones y encabezados. */
+  --primario: #0f3a63;
+  --primario-suave: #e6eef6;
+  --primario-contraste: #ffffff;
+
+  /* Ámbar: EXCLUSIVO del estado de desconexión. No usar para nada más. */
+  --desconexion: #b45309;
+  --desconexion-suave: #fdf3e3;
+
+  /* Verde: EXCLUSIVO de confirmación. */
+  --confirmacion: #15803d;
+  --confirmacion-suave: #e8f5ec;
+
+  --error: #b91c1c;
+  --error-suave: #fdecec;
+
+  /*
+   * Puente de compatibilidad con components/ui: las primitivas que vendoriza
+   * el CLI de shadcn referencian esta convención de nombres (background,
+   * foreground, card, primary, border...) directamente en sus clases. Sin
+   * esto quedarían sin color. Apuntan a los mismos valores de marca de
+   * arriba — no es una paleta nueva, es la misma expresada con los nombres
+   * que ese código ya espera.
+   */
+  --background: var(--fondo);
+  --foreground: var(--texto);
+  --card: var(--fondo);
+  --card-foreground: var(--texto);
+  --popover: var(--fondo);
+  --popover-foreground: var(--texto);
+  --primary: var(--primario);
+  --primary-foreground: var(--primario-contraste);
+  --secondary: var(--fondo-sutil);
+  --secondary-foreground: var(--texto);
+  --muted: var(--fondo-sutil);
+  --muted-foreground: var(--texto-tenue);
+  --destructive: var(--error);
+  --border: var(--borde);
+  --input: var(--borde);
+  --ring: var(--primario);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-fondo: var(--fondo);
+  --color-fondo-sutil: var(--fondo-sutil);
+  --color-texto: var(--texto);
+  --color-texto-tenue: var(--texto-tenue);
+  --color-borde: var(--borde);
+  --color-primario: var(--primario);
+  --color-primario-suave: var(--primario-suave);
+  --color-primario-contraste: var(--primario-contraste);
+  --color-desconexion: var(--desconexion);
+  --color-desconexion-suave: var(--desconexion-suave);
+  --color-confirmacion: var(--confirmacion);
+  --color-confirmacion-suave: var(--confirmacion-suave);
+  --color-error: var(--error);
+  --color-error-suave: var(--error-suave);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Puente de compatibilidad con components/ui (ver comentario en :root). */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Toda designación en monoespaciada, en cualquier pantalla. */
+.designacion {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.01em;
 }
