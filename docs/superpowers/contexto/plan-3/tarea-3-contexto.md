@@ -14,16 +14,21 @@ puedes conocerlo al escribirlo. Para ubicar el trabajo basta con
   rutas y componentes de servidor como en scripts sueltos, a diferencia de
   `clienteServidor()` que depende de `cookies()` y solo existe dentro del
   ciclo de una petición.
-- `lib/fuentes/`: siete archivos (`designaciones.ts`, `inventario.ts`,
+- `lib/fuentes/`: ocho archivos (`designaciones.ts`, `inventario.ts`,
   `plantas.ts`, `homologos.ts`, `cotizaciones.ts`, `contexto.ts`,
-  `index.ts`) que son el único punto de acceso a las tablas del catálogo.
-  Ningún componente de la aplicación debe hacer `.from(...)` por su cuenta:
-  todo pasa por aquí, para que sustituir estas funciones por la API real de
-  WCL/SPQ+/PinQ en la Fase 3 sea cambiar una implementación y no reescribir
-  la aplicación.
+  `errores.ts`, `index.ts`) que son el único punto de acceso a las tablas
+  del catálogo. Ningún componente de la aplicación debe hacer `.from(...)`
+  por su cuenta: todo pasa por aquí, para que sustituir estas funciones por
+  la API real de WCL/SPQ+/PinQ en la Fase 3 sea cambiar una implementación
+  y no reescribir la aplicación.
 - `construirContexto`, que resuelve `ContextoSolicitud.reemplazo` antes de
   entregárselo a `evaluarSolicitud` — el invariante que esta tarea existe
   para cumplir (ver abajo).
+- `lanzarSiError` (`lib/fuentes/errores.ts`), añadido en una revisión
+  posterior de esta misma tarea: las doce consultas de la capa lanzan
+  ahora si Supabase devuelve `error`, en vez de dejar que un fallo de
+  infraestructura se disfrace de "no hay datos" — ver la sección de
+  "Revisión" más abajo.
 
 ## Decisiones tomadas y por qué
 
@@ -70,10 +75,62 @@ puedes conocerlo al escribirlo. Para ubicar el trabajo basta con
   `DEMO-6205-2RSH/C3`, que solo tiene filas `PS` y `SL` (ver salida del
   script, punto 8).
 
+## Revisión: los errores de Supabase ahora lanzan
+
+**Hallazgo de la revisión de código (Importante):** las doce consultas de
+esta capa desestructuraban `{ data }` y descartaban `error`. Consecuencia
+concreta: `obtenerDesignacion` devolvía `null` tanto si la designación no
+existía como si la conexión fallaba. Ese `null` se propagaba a
+`construirContexto`, que armaba `{ designacion: null, ... }`, y
+`evaluarSolicitud` devolvía `declinar_designacion_invalida` (punto 4.8) —
+es decir, un fallo de red se habría presentado al cliente, en vivo, como
+"su designación no existe, se declina la solicitud". El código venía
+literal del brief (pasos 4, 6 y 7); el defecto estaba en el plan, no en la
+ejecución original.
+
+**Arreglo:** `lib/fuentes/errores.ts` añade
+`lanzarSiError(error, operacion)`, que lanza
+`` `No se pudo ${operacion}: ${error.message}` `` si `error` no es nulo. Se
+invoca justo después de cada una de las doce consultas
+(`clienteLectura().from(...)` o `.rpc(...)`) en `designaciones.ts` (4),
+`inventario.ts` (1), `plantas.ts` (2), `homologos.ts` (1) y
+`cotizaciones.ts` (4, contando las dos consultas de
+`historicoDeFamilia`). `construirContexto` no necesitó cambios propios:
+hereda el lanzamiento porque llama a `obtenerDesignacion`, `existenciasDe`
+y `obtenerPlanta` (que delega en `plantaCompleta`).
+
+**Por qué lanzar y no devolver un resultado de error tipado:** el brief y
+el resto de la capa ya usan `null`/`[]` como resultado de dominio válido
+(designación inexistente, sin existencias, sin homólogos). Envolver el
+resultado en algo como `{ ok, data, error }` habría obligado a todos los
+llamadores — incluidas las diez tareas siguientes — a manejar ese caso
+explícitamente en cada sitio de uso. Lanzar dejar el camino feliz de la
+API idéntico (mismas firmas, mismos tipos de retorno) y empuja el manejo
+del error de infraestructura al límite natural de la aplicación (Server
+Component / Server Action / route handler), que es donde ya se maneja
+cualquier otra excepción no prevista. Es la misma decisión que ya toma
+`lib/sesion-demo` en el plan (`if (error) throw new Error(...)`).
+
+Un único cast previo (`as unknown as Homologo[]` en `homologosDe`) ya
+había sido validado como correcto en la revisión y no se tocó de nuevo.
+
 ## Contrato que exponen estos archivos
 
-Trece funciones exportadas. Todas las tareas siguientes las consumen;
-ninguna debe volver a consultar tablas por su cuenta.
+Quince funciones exportadas (trece de dominio más `aDesignacion`/`aPlanta`,
+los mapeadores de fila). Todas las tareas siguientes las consumen; ninguna
+debe volver a consultar tablas por su cuenta.
+
+**Contrato de errores, válido para las doce funciones que consultan
+tablas o RPC (todas menos `aDesignacion`, `aPlanta` y `construirContexto`,
+que no consultan directamente pero heredan el comportamiento de las que sí
+lo hacen):** si Supabase devuelve un `error` no nulo, la función **lanza**
+`Error` con mensaje `` `No se pudo <operación>: <error.message>` `` en vez
+de devolver `null` o `[]`. Un `null`/`[]` de retorno normal significa
+siempre "no hay datos", nunca "algo falló". Cualquier tarea que llame a
+estas funciones desde un Server Component o Server Action debe esperar
+que puedan lanzar y dejar que la excepción suba (React ya renderiza el
+`error.tsx` más cercano) en vez de asumir que un `null` cubre todos los
+casos de fallo.
 
 `lib/supabase/lectura.ts`:
 ```ts
@@ -91,7 +148,18 @@ function similaresA(consulta: string, limite?: number): Promise<{ designacion: s
 `obtenerVarias` preserva el orden de `codigos` (no el orden de la base) y
 omite silenciosamente los códigos no encontrados. `completacionesDe` y
 `similaresA` envuelven las RPC `buscar_por_prefijo` / `buscar_similares` de
-la Tarea 2; `limite` por defecto es 5 en ambas.
+la Tarea 2; `limite` por defecto es 5 en ambas. Las cuatro funciones que
+consultan (`obtenerDesignacion`, `obtenerVarias`, `completacionesDe`,
+`similaresA`) lanzan si Supabase devuelve error — ver "Revisión" arriba.
+
+`lib/fuentes/errores.ts`:
+```ts
+function lanzarSiError(error: PostgrestError | null, operacion: string): void
+```
+Ayudante interno (no reexportado por `index.ts`): lanza
+`` `No se pudo ${operacion}: ${error.message}` `` si `error` no es nulo.
+Se invoca inmediatamente después de cada consulta en las doce llamadas de
+esta capa.
 
 `lib/fuentes/inventario.ts`:
 ```ts
@@ -99,6 +167,7 @@ function existenciasDe(codigo: string): Promise<Existencia[]>
 ```
 Orden fijo PS → SL → XX (el orden del QMS), sin importar el orden de la
 base. Almacenes sin fila para esa designación simplemente no aparecen.
+Lanza si Supabase devuelve error.
 
 `lib/fuentes/plantas.ts`:
 ```ts
@@ -114,7 +183,8 @@ function todasLasPlantas(): Promise<PlantaCompleta[]>
 ```
 `obtenerPlanta` es la misma consulta que `plantaCompleta`, tipada al
 subconjunto que consume el motor de reglas. `todasLasPlantas` ordena por
-`pdiv`.
+`pdiv`. `plantaCompleta` y `todasLasPlantas` lanzan si Supabase devuelve
+error; `obtenerPlanta` lo hereda porque delega en `plantaCompleta`.
 
 `lib/fuentes/homologos.ts`:
 ```ts
@@ -125,7 +195,8 @@ function homologosDe(codigo: string): Promise<Homologo[]>
 Simétrico: si `codigo` es el `equivalente` de la fila en la base, la
 relación se invierte (origen ↔ equivalente, y cada `DiferenciaTecnica`
 también invierte `valor_origen` ↔ `valor_equivalente`) para que el
-llamador siempre reciba `origen === codigo`.
+llamador siempre reciba `origen === codigo`. Lanza si Supabase devuelve
+error.
 
 `lib/fuentes/cotizaciones.ts`:
 ```ts
@@ -145,7 +216,10 @@ cotizaciones con `resultado = "cotizada"` y `te_semanas` no nulo.
 cotizaciones de esos códigos) porque `cotizaciones.designacion` es texto
 libre sin clave foránea al catálogo — el histórico puede incluir
 designaciones inválidas (punto 4.8), y una sola consulta con `join`
-implícito las perdería.
+implícito las perdería. Las tres funciones lanzan si Supabase devuelve
+error en cualquiera de sus consultas (`historicoDeFamilia` puede lanzar
+por la consulta de códigos o por la de cotizaciones, con un mensaje
+distinto para cada una).
 
 `lib/fuentes/contexto.ts`:
 ```ts
@@ -159,11 +233,14 @@ en paralelo (`Promise.all`) sus existencias, su planta y — solo si
 el único lugar de todo el proyecto donde `reemplazo` se resuelve; pasar
 `reemplazo: null` con `reemplazadoPor` no nulo hace que `evaluarSolicitud`
 decline por el punto 4.7 un caso que el procedimiento manda cotizar por el
-4.6.
+4.6. `construirContexto` no consulta directamente, así que no llama a
+`lanzarSiError`, pero hereda el lanzamiento de `obtenerDesignacion`,
+`existenciasDe` y `obtenerPlanta`.
 
 `lib/fuentes/index.ts` reexporta los seis módulos de dominio (todo menos
 `lib/supabase/lectura.ts`, que se importa aparte porque vive fuera de
-`lib/fuentes`).
+`lib/fuentes`, y `lib/fuentes/errores.ts`, que es un ayudante interno sin
+uso previsto fuera de esta capa).
 
 ## Qué falta / qué NO hace
 
@@ -178,6 +255,18 @@ decline por el punto 4.7 un caso que el procedimiento manda cotizar por el
   por petición si hace falta más adelante.
 - No se tocó ninguna tabla de escritura ni Server Action: esta capa es de
   solo lectura con la clave anónima, tal como exige la restricción global.
+- No se agregaron reintentos, caché ni degradación elegante ante un error
+  de Supabase: la revisión pidió explícitamente que el error dejara de ser
+  invisible, no que se amortiguara. Lanzar es todo lo que hace `lanzarSiError`.
+- `obtenerCotizacion` sigue usando `as Record<string, unknown>` con casts
+  campo por campo en vez de una `FilaCotizacion` como el resto de la capa
+  — viene literal del brief y quedó registrado como hallazgo menor
+  diferido por el revisor, sin arreglar a propósito.
+- La comprobación 9 del script (`homologosDe`) solo ejercitó el camino
+  "identidad" (cuando `codigo` es el `origen` de la fila); el camino de
+  inversión no se ejecutó porque los dos homólogos sembrados de
+  `DEMO-OBS-CON` lo tienen como `origen`. Hallazgo menor diferido por el
+  revisor.
 
 ## Cómo verificar
 
@@ -238,3 +327,35 @@ TODAS LAS COMPROBACIONES PASARON
 
 No fue necesario `pnpm seed`: los casos curados del Plan 2
 (`DEMO-6205-2RSH/C3`, `DEMO-OBS-CON`, `DEMO-OBS-SIN`) ya estaban presentes.
+
+### Re-verificación tras el arreglo de manejo de errores
+
+Las diez comprobaciones de arriba se volvieron a correr después de añadir
+`lanzarSiError` a las doce consultas: mismo resultado, las diez en verde
+(el camino feliz no cambia — `lanzarSiError` no hace nada cuando
+`error === null`).
+
+Comprobación nueva, en un script aparte
+(`scripts/comprobar-fuentes-error-forzado.ts`, creado y borrado junto con
+`comprobar-fuentes.ts`): se ejecutó en un **proceso nuevo** (necesario
+porque `clienteLectura()` memoiza el cliente en el primer uso) que carga
+`.env.local` y luego pisa `NEXT_PUBLIC_SUPABASE_ANON_KEY` con un valor
+inválido *antes* de la primera llamada, y entonces invoca la función real
+`obtenerDesignacion('DEMO-6205-2RSH/C3')`:
+
+```
+Llamando a obtenerDesignacion('DEMO-6205-2RSH/C3') con clave anónima inválida...
+Lanzó: No se pudo obtener la designación DEMO-6205-2RSH/C3: Invalid API key
+OK   - el mensaje nombra la operación ('obtener la designación DEMO-6205-2RSH/C3')
+OK   - lanzó una excepción en vez de devolver null
+```
+
+Confirma extremo a extremo, con la función exportada real (no una prueba
+sintética de `lanzarSiError` aislada), que un error de infraestructura
+ahora es visible y nombra la operación — ya no puede confundirse con
+"designación inexistente".
+
+`pnpm test`, `pnpm lint` y `tsc --noEmit` se volvieron a correr tras el
+arreglo con el mismo resultado que arriba (187/187, sin avisos nuevos, sin
+errores de tipos). El detalle exacto está en
+`.superpowers/sdd/2026-08-04-plan-3-motores-y-pantallas/tarea-3-report.md`.

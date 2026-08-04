@@ -1,4 +1,5 @@
 import { clienteLectura } from "@/lib/supabase/lectura";
+import { lanzarSiError } from "./errores";
 
 export interface Cotizacion {
   numero: string;
@@ -14,12 +15,13 @@ export interface Cotizacion {
 
 /** Semanas de TE del histórico de una designación. Base del estimador. */
 export async function historicoDe(codigo: string): Promise<number[]> {
-  const { data } = await clienteLectura()
+  const { data, error } = await clienteLectura()
     .from("cotizaciones")
     .select("te_semanas")
     .eq("designacion", codigo)
     .eq("resultado", "cotizada")
     .not("te_semanas", "is", null);
+  lanzarSiError(error, `obtener el histórico de ${codigo}`);
   return ((data ?? []) as { te_semanas: number }[]).map((f) => Number(f.te_semanas));
 }
 
@@ -31,31 +33,34 @@ export async function historicoDe(codigo: string): Promise<number[]> {
  */
 export async function historicoDeFamilia(familia: string): Promise<number[]> {
   const cliente = clienteLectura();
-  const { data: codigos } = await cliente
+  const { data: codigos, error: errorCodigos } = await cliente
     .from("designaciones")
     .select("designacion")
     .eq("familia", familia)
     .limit(400);
+  lanzarSiError(errorCodigos, `obtener las designaciones de la familia ${familia}`);
   const lista = ((codigos ?? []) as { designacion: string }[]).map((f) => f.designacion);
   if (lista.length === 0) return [];
 
-  const { data } = await cliente
+  const { data, error } = await cliente
     .from("cotizaciones")
     .select("te_semanas")
     .in("designacion", lista)
     .eq("resultado", "cotizada")
     .not("te_semanas", "is", null);
+  lanzarSiError(error, `obtener el histórico de la familia ${familia}`);
   return ((data ?? []) as { te_semanas: number }[]).map((f) => Number(f.te_semanas));
 }
 
 export async function obtenerCotizacion(numero: string): Promise<Cotizacion | null> {
-  const { data } = await clienteLectura()
+  const { data, error } = await clienteLectura()
     .from("cotizaciones")
     .select(
       "numero, designacion, cantidad, fecha_solicitud, fecha_respuesta, resultado, motivo_declinado, te_semanas, precio",
     )
     .eq("numero", numero)
     .maybeSingle();
+  lanzarSiError(error, `obtener la cotización ${numero}`);
   if (!data) return null;
   const f = data as Record<string, unknown>;
   return {

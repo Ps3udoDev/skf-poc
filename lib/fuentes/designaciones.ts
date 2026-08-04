@@ -1,5 +1,6 @@
 import type { Designacion } from "@/lib/reglas-qms";
 import { clienteLectura } from "@/lib/supabase/lectura";
+import { lanzarSiError } from "./errores";
 
 /** Columnas del catálogo que el dominio necesita. Una sola lista, un solo lugar. */
 export const COLUMNAS = `
@@ -53,20 +54,22 @@ export function aDesignacion(fila: FilaDesignacion): Designacion {
 }
 
 export async function obtenerDesignacion(codigo: string): Promise<Designacion | null> {
-  const { data } = await clienteLectura()
+  const { data, error } = await clienteLectura()
     .from("designaciones")
     .select(COLUMNAS)
     .eq("designacion", codigo)
     .maybeSingle();
+  lanzarSiError(error, `obtener la designación ${codigo}`);
   return data ? aDesignacion(data as unknown as FilaDesignacion) : null;
 }
 
 export async function obtenerVarias(codigos: string[]): Promise<Designacion[]> {
   if (codigos.length === 0) return [];
-  const { data } = await clienteLectura()
+  const { data, error } = await clienteLectura()
     .from("designaciones")
     .select(COLUMNAS)
     .in("designacion", codigos);
+  lanzarSiError(error, "obtener varias designaciones");
   const encontradas = ((data ?? []) as unknown as FilaDesignacion[]).map(aDesignacion);
   // Se preserva el orden pedido: el validador ordena por puntaje y la base no.
   const porCodigo = new Map(encontradas.map((d) => [d.designacion, d]));
@@ -75,7 +78,8 @@ export async function obtenerVarias(codigos: string[]): Promise<Designacion[]> {
 
 /** Estrategia 3 de la cascada: el texto es prefijo de designaciones válidas. */
 export async function completacionesDe(prefijo: string, limite = 5): Promise<string[]> {
-  const { data } = await clienteLectura().rpc("buscar_por_prefijo", { prefijo, limite });
+  const { data, error } = await clienteLectura().rpc("buscar_por_prefijo", { prefijo, limite });
+  lanzarSiError(error, `buscar completaciones del prefijo ${prefijo}`);
   return ((data ?? []) as { designacion: string }[]).map((f) => f.designacion);
 }
 
@@ -84,6 +88,7 @@ export async function similaresA(
   consulta: string,
   limite = 5,
 ): Promise<{ designacion: string; puntaje: number }[]> {
-  const { data } = await clienteLectura().rpc("buscar_similares", { consulta, limite });
+  const { data, error } = await clienteLectura().rpc("buscar_similares", { consulta, limite });
+  lanzarSiError(error, `buscar designaciones similares a ${consulta}`);
   return (data ?? []) as { designacion: string; puntaje: number }[];
 }

@@ -1,5 +1,6 @@
 import type { Planta } from "@/lib/reglas-qms";
 import { clienteLectura } from "@/lib/supabase/lectura";
+import { lanzarSiError } from "./errores";
 
 /** Planta con lo que el motor de reglas ignora pero el estado de fábricas necesita. */
 export interface PlantaCompleta extends Planta {
@@ -45,11 +46,12 @@ export function aPlanta(fila: FilaPlanta): PlantaCompleta {
 }
 
 export async function plantaCompleta(pdiv: string): Promise<PlantaCompleta | null> {
-  const { data } = await clienteLectura()
+  const { data, error } = await clienteLectura()
     .from("plantas")
     .select(COLUMNAS_PLANTA)
     .eq("pdiv", pdiv)
     .maybeSingle();
+  lanzarSiError(error, `obtener la planta ${pdiv}`);
   return data ? aPlanta(data as unknown as FilaPlanta) : null;
 }
 
@@ -58,6 +60,10 @@ export async function obtenerPlanta(pdiv: string): Promise<Planta | null> {
 }
 
 export async function todasLasPlantas(): Promise<PlantaCompleta[]> {
-  const { data } = await clienteLectura().from("plantas").select(COLUMNAS_PLANTA).order("pdiv");
+  const { data, error } = await clienteLectura()
+    .from("plantas")
+    .select(COLUMNAS_PLANTA)
+    .order("pdiv");
+  lanzarSiError(error, "obtener todas las plantas");
   return ((data ?? []) as unknown as FilaPlanta[]).map(aPlanta);
 }

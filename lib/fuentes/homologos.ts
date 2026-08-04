@@ -1,4 +1,5 @@
 import { clienteLectura } from "@/lib/supabase/lectura";
+import { lanzarSiError } from "./errores";
 
 export interface DiferenciaTecnica {
   atributo: string;
@@ -18,10 +19,11 @@ export interface Homologo {
  * en la realidad aunque la tabla la guarde dirigida.
  */
 export async function homologosDe(codigo: string): Promise<Homologo[]> {
-  const { data } = await clienteLectura()
+  const { data, error } = await clienteLectura()
     .from("homologos")
     .select("origen, equivalente, motivo, diferencias")
     .or(`origen.eq.${codigo},equivalente.eq.${codigo}`);
+  lanzarSiError(error, `obtener homólogos de ${codigo}`);
   return ((data ?? []) as unknown as Homologo[]).map((h) =>
     h.origen === codigo
       ? h
