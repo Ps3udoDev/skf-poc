@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { IndicadorModo } from "@/components/sesion/indicador-modo";
+import { IndicadorPlantas } from "@/components/sesion/indicador-plantas";
 import { DistintivoDemo } from "./distintivo-demo";
 
 export function BarraSuperior({ perfil }: { perfil: "cliente" | "operador" }) {
@@ -24,8 +26,10 @@ export function BarraSuperior({ perfil }: { perfil: "cliente" | "operador" }) {
         </nav>
       </div>
       <div className="flex items-center gap-4">
-        {/* El indicador de estado de plantas y el del modo activo se montan
-            aquí en la tarea 5, cuando exista el proveedor de sesión. */}
+        {/* Los indicadores son Client Components que consumen useSesion():
+            esta barra solo puede montarse dentro de <ProveedorSesion>. */}
+        <IndicadorPlantas />
+        <IndicadorModo />
         <DistintivoDemo />
       </div>
     </header>
