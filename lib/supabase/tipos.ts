@@ -117,8 +117,10 @@ export type Database = {
           pack_quantity: number
           pcc: Database["public"]["Enums"]["pcc_codigo"]
           pdiv: string
-          precio_lista: number
+          precio_lista: number | null
           reemplazado_por: string | null
+          reemplazo_indicado_fabrica: string | null
+          segmento: Database["public"]["Enums"]["segmento_producto"]
           vigente: boolean
         }
         Insert: {
@@ -133,8 +135,10 @@ export type Database = {
           pack_quantity?: number
           pcc: Database["public"]["Enums"]["pcc_codigo"]
           pdiv: string
-          precio_lista: number
+          precio_lista?: number | null
           reemplazado_por?: string | null
+          reemplazo_indicado_fabrica?: string | null
+          segmento?: Database["public"]["Enums"]["segmento_producto"]
           vigente?: boolean
         }
         Update: {
@@ -149,8 +153,10 @@ export type Database = {
           pack_quantity?: number
           pcc?: Database["public"]["Enums"]["pcc_codigo"]
           pdiv?: string
-          precio_lista?: number
+          precio_lista?: number | null
           reemplazado_por?: string | null
+          reemplazo_indicado_fabrica?: string | null
+          segmento?: Database["public"]["Enums"]["segmento_producto"]
           vigente?: boolean
         }
         Relationships: [
@@ -552,6 +558,7 @@ export type Database = {
         | "planta_sin_ruta"
       pcc_codigo: "C" | "P" | "N" | "O"
       resultado_cotizacion: "cotizada" | "declinada"
+      segmento_producto: "rodamiento" | "power_transmission"
       tipo_cliente: "AFT" | "OEM" | "USUARIO_FINAL"
       tipo_evento:
         | "busqueda"
@@ -707,6 +714,7 @@ export const Constants = {
       ],
       pcc_codigo: ["C", "P", "N", "O"],
       resultado_cotizacion: ["cotizada", "declinada"],
+      segmento_producto: ["rodamiento", "power_transmission"],
       tipo_cliente: ["AFT", "OEM", "USUARIO_FINAL"],
       tipo_evento: [
         "busqueda",
