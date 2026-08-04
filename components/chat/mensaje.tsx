@@ -11,8 +11,8 @@ export function Mensaje({ mensaje }: { mensaje: UIMessage }) {
     <article
       className={
         mensaje.role === "user"
-          ? "ml-8 rounded-xl bg-primario px-3 py-2 text-sm text-primario-contraste"
-          : "mr-4 rounded-xl border border-borde bg-fondo px-3 py-2 text-sm text-texto"
+          ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-primario px-3.5 py-2.5 text-sm text-primario-contraste"
+          : "mr-auto max-w-[92%] rounded-2xl rounded-tl-md border border-borde bg-fondo px-3.5 py-2.5 text-sm text-texto"
       }
     >
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-70">
