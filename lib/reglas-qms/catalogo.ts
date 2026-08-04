@@ -24,17 +24,23 @@ export function esObsoleto(d: Designacion): boolean {
 }
 
 /**
- * Punto 4.6, segundo sub-caso — la validación con el Ingeniero de Ventas se
- * exige ÚNICAMENTE cuando el reemplazo no está en sistema y lo indica la
- * fábrica. Si el reemplazo está en sistema, basta con informar el cambio.
+ * Punto 4.6, segundo sub-caso — "si no está en sistema, pero la fábrica lo
+ * indica se cotiza y se le pide al cliente que revise con su Ing. de Ventas si
+ * dicho reemplazo cumple con sus necesidades técnicas."
+ *
+ * El sub-caso se deriva del dato, no de una bandera que alguien pase a mano:
+ * es el propio catálogo el que registra el código que indica la fábrica. Si el
+ * reemplazo sí está en sistema (primer sub-caso) basta con informar el cambio,
+ * y quien llama debe resolver ese camino sin pedir este aviso.
  */
-export function avisoReemplazo(reemplazoSoloIndicadoPorFabrica: boolean): Aviso | null {
-  if (!reemplazoSoloIndicadoPorFabrica) return null;
+export function avisoReemplazo(d: Designacion): Aviso | null {
+  if (d.reemplazoIndicadoFabrica === null) return null;
   return {
     tipo: "validar_con_ingeniero_ventas",
     punto: "4.6",
     mensaje:
-      "Este reemplazo lo indica la fábrica pero no está dado de alta en sistema. " +
+      `El reemplazo de ${d.designacion} que indica la fábrica ` +
+      `(${d.reemplazoIndicadoFabrica}) no está dado de alta en sistema. ` +
       "Revise con su Ingeniero de Ventas si cumple con sus necesidades técnicas.",
   };
 }

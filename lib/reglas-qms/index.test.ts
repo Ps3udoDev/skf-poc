@@ -10,11 +10,13 @@ const d = (extra: Partial<Designacion> = {}): Designacion => ({
   lcc: "PLAN",
   fpc: "1",
   pdiv: "P100",
+  segmento: "rodamiento",
   moq: 1,
   packQuantity: 1,
   precioLista: 120.5,
   vigente: true,
   reemplazadoPor: null,
+  reemplazoIndicadoFabrica: null,
   esNuevaCreacion: false,
   ...extra,
 });
@@ -54,14 +56,9 @@ describe("Corte por planta sin ruta (4.5b)", () => {
 });
 
 describe("Obsoletos (4.6 y 4.7)", () => {
-  it("declina el obsoleto sin reemplazo", () => {
-    const r = evaluarSolicitud(ctx({ designacion: d({ pcc: "O", vigente: false }) }));
-    expect(r.ruta).toBe("declinar_obsoleto_sin_reemplazo");
-    expect(r.punto).toBe("4.7");
-    expect(r.declinada).toBe(true);
-  });
+  // Las tres salidas de la rama de obsoletos, en el orden del procedimiento.
 
-  it("cotiza el reemplazo cuando existe y no exige validacion si esta en sistema", () => {
+  it("SALIDA 1 · reemplazo en sistema: cotiza sin exigir validacion tecnica", () => {
     const r = evaluarSolicitud(
       ctx({
         designacion: d({ pcc: "O", vigente: false, reemplazadoPor: "6205-2RSL/C3" }),
@@ -74,15 +71,108 @@ describe("Obsoletos (4.6 y 4.7)", () => {
     expect(r.avisos.some((a) => a.tipo === "validar_con_ingeniero_ventas")).toBe(false);
   });
 
-  it("exige validacion con Ing. de Ventas si el reemplazo solo lo indica la fabrica", () => {
+  it("SALIDA 2 · reemplazo solo indicado por la fabrica: cotiza y exige Ing. de Ventas", () => {
     const r = evaluarSolicitud(
       ctx({
-        designacion: d({ pcc: "O", vigente: false, reemplazadoPor: "6205-2RSL/C3" }),
-        reemplazo: d({ designacion: "6205-2RSL/C3" }),
-        reemplazoSoloIndicadoPorFabrica: true,
+        designacion: d({
+          pcc: "O",
+          vigente: false,
+          reemplazoIndicadoFabrica: "6205-2RSL/C3",
+        }),
+        reemplazo: null,
       }),
     );
+    expect(r.ruta).toBe("cotizar_con_reemplazo");
+    expect(r.punto).toBe("4.6");
+    expect(r.declinada).toBe(false);
     expect(r.avisos.some((a) => a.tipo === "validar_con_ingeniero_ventas")).toBe(true);
+  });
+
+  it("SALIDA 2 · el mensaje nombra la original y el codigo que indica la fabrica", () => {
+    const r = evaluarSolicitud(
+      ctx({
+        designacion: d({
+          pcc: "O",
+          vigente: false,
+          reemplazoIndicadoFabrica: "6205-2RSL/C3",
+        }),
+      }),
+    );
+    expect(r.mensaje).toContain("6205-2RSH/C3");
+    expect(r.mensaje).toContain("6205-2RSL/C3");
+  });
+
+  it("SALIDA 2 · el resto del arbol se evalua sobre la ORIGINAL, no sobre el reemplazo", () => {
+    // Deliberado: no conocemos MOQ, pack quantity ni FPC del reemplazo porque
+    // por definicion no esta en el sistema. Aqui la original tiene pack 20 y
+    // la cantidad se ajusta con SU pack, no con uno inventado.
+    const r = evaluarSolicitud(
+      ctx({
+        designacion: d({
+          pcc: "O",
+          vigente: false,
+          reemplazoIndicadoFabrica: "6205-2RSL/C3",
+          packQuantity: 20,
+          fpc: "2",
+        }),
+        cantidad: 25,
+      }),
+    );
+    expect(r.cantidadEfectiva).toBe(40);
+    expect(r.avisos.map((a) => a.tipo)).toContain("pack_quantity_ajustado");
+    expect(r.avisos.map((a) => a.tipo)).toContain("precio_requiere_lpc");
+  });
+
+  it("SALIDA 3 · obsoleto sin reemplazo de ninguna clase: declina por 4.7", () => {
+    const r = evaluarSolicitud(
+      ctx({
+        designacion: d({ pcc: "O", vigente: false, reemplazoIndicadoFabrica: null }),
+        reemplazo: null,
+      }),
+    );
+    expect(r.ruta).toBe("declinar_obsoleto_sin_reemplazo");
+    expect(r.punto).toBe("4.7");
+    expect(r.declinada).toBe(true);
+  });
+
+  it("el aviso de Ing. de Ventas aparece SOLO en la segunda salida", () => {
+    const tieneAviso = (c: Parameters<typeof evaluarSolicitud>[0]) =>
+      evaluarSolicitud(c).avisos.some((a) => a.tipo === "validar_con_ingeniero_ventas");
+
+    const enSistema = ctx({
+      designacion: d({ pcc: "O", vigente: false, reemplazadoPor: "6205-2RSL/C3" }),
+      reemplazo: d({ designacion: "6205-2RSL/C3" }),
+    });
+    const soloFabrica = ctx({
+      designacion: d({ pcc: "O", vigente: false, reemplazoIndicadoFabrica: "6205-2RSL/C3" }),
+    });
+    const sinReemplazo = ctx({ designacion: d({ pcc: "O", vigente: false }) });
+    const vigente = ctx();
+
+    expect([
+      tieneAviso(enSistema),
+      tieneAviso(soloFabrica),
+      tieneAviso(sinReemplazo),
+      tieneAviso(vigente),
+    ]).toEqual([false, true, false, false]);
+  });
+
+  it("el reemplazo en sistema tiene prioridad sobre el que indica la fabrica", () => {
+    // Si ambos datos estan presentes gana el primer sub-caso: conocemos el
+    // reemplazo por completo y no hace falta validacion tecnica.
+    const r = evaluarSolicitud(
+      ctx({
+        designacion: d({
+          pcc: "O",
+          vigente: false,
+          reemplazadoPor: "6205-2RSL/C3",
+          reemplazoIndicadoFabrica: "6205-2RSK/C3",
+        }),
+        reemplazo: d({ designacion: "6205-2RSL/C3" }),
+      }),
+    );
+    expect(r.mensaje).toContain("6205-2RSL/C3");
+    expect(r.avisos.some((a) => a.tipo === "validar_con_ingeniero_ventas")).toBe(false);
   });
 
   it("el mensaje nombra tanto la designacion original como el reemplazo", () => {
@@ -172,7 +262,7 @@ describe("Pack quantity (4.5a)", () => {
         existencias: [{ almacen: "PS", cantidad: 30 }],
       }),
     );
-    expect(r.ruta).toBe("solicitar_lt_planner");
+    expect(r.ruta).toBe("revisar_lt");
   });
 });
 
@@ -184,16 +274,32 @@ describe("Planeado y no planeado (4.1, 4.2, 4.3)", () => {
     expect(r.declinada).toBe(true);
   });
 
-  it("pide LT al planner si la cantidad supera el stock", () => {
+  it("revisa LT estandar o del planner si la cantidad supera el stock", () => {
     const r = evaluarSolicitud(ctx({ cantidad: 900 }));
-    expect(r.ruta).toBe("solicitar_lt_planner");
+    expect(r.ruta).toBe("revisar_lt");
     expect(r.declinada).toBe(false);
+    // El punto 4.1 admite las dos vias; el mensaje no debe omitir la primera.
+    expect(r.mensaje).toContain("LT estándar");
+    expect(r.mensaje).toContain("planner");
   });
 
   it("ingresa PINQ para el no planeado sin disponibilidad", () => {
     const r = evaluarSolicitud(ctx({ designacion: d({ lcc: "NP", pcc: "N" }), existencias: [] }));
     expect(r.ruta).toBe("ingresar_pinq");
     expect(r.punto).toBe("4.3");
+  });
+
+  it("consulta al Planner para el Power Transmission sin disponibilidad (4.3)", () => {
+    const r = evaluarSolicitud(
+      ctx({
+        designacion: d({ lcc: "NP", pcc: "N", segmento: "power_transmission" }),
+        existencias: [],
+      }),
+    );
+    expect(r.ruta).toBe("consultar_planner");
+    expect(r.punto).toBe("4.3");
+    expect(r.declinada).toBe(false);
+    expect(r.mensaje).toContain("Planner");
   });
 
   it("revisa disponibilidad para el no planeado con existencias", () => {

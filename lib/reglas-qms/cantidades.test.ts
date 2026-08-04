@@ -10,11 +10,13 @@ const base: Designacion = {
   lcc: "PLAN",
   fpc: "1",
   pdiv: "P100",
+  segmento: "rodamiento",
   moq: 1,
   packQuantity: 1,
   precioLista: 120.5,
   vigente: true,
   reemplazadoPor: null,
+  reemplazoIndicadoFabrica: null,
   esNuevaCreacion: false,
 };
 

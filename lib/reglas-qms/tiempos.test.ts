@@ -15,11 +15,13 @@ const base: Designacion = {
   lcc: "PLAN",
   fpc: "1",
   pdiv: "P100",
+  segmento: "rodamiento",
   moq: 1,
   packQuantity: 1,
   precioLista: 120.5,
   vigente: true,
   reemplazadoPor: null,
+  reemplazoIndicadoFabrica: null,
   esNuevaCreacion: false,
 };
 
@@ -52,10 +54,20 @@ describe("Precio segun FPC (punto 5)", () => {
   it("FPC2 avisa que el precio depende del LPC de fabrica", () => {
     const aviso = avisoPrecio({ ...base, fpc: "2" });
     expect(aviso?.tipo).toBe("precio_requiere_lpc");
+    // El punto es la cita literal del procedimiento que se pinta en pantalla:
+    // es el argumento de credibilidad del POC, no un adorno.
+    expect(aviso?.punto).toBe("5.3");
     expect(aviso?.mensaje).toContain("LPC");
   });
 
   it("FPC1 no genera aviso: hay precio de lista o parametros SPQ+", () => {
     expect(avisoPrecio(base)).toBeNull();
+  });
+
+  it("el FPC2 sin precio de lista sigue avisando: el aviso no depende del precio", () => {
+    // precio_lista es nullable desde la migracion 007 justamente porque el
+    // FPC2 no es producto de Linea. El aviso se decide por el FPC, nunca
+    // desreferenciando el precio.
+    expect(avisoPrecio({ ...base, fpc: "2", precioLista: null })?.punto).toBe("5.3");
   });
 });

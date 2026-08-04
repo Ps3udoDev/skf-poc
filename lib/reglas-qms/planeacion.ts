@@ -22,22 +22,31 @@ export function stockPorAlmacen(existencias: Existencia[]): Record<Almacen, numb
 /**
  * Punto 4.1 — planeado con cantidad menor o igual al stock: se declina porque
  * el producto ya estaba disponible en WCL y la cotización era innecesaria.
- * Si la cantidad supera el stock, se pide LT al planner de la PDIV.
+ * Si la cantidad supera el stock, "se revisa LT estándar O se pide LT al
+ * planner de la PDIV": el procedimiento admite las dos vías, de ahí el nombre
+ * neutro `revisar_lt` en lugar de comprometerse solo con el planner.
  */
 export function rutaPlaneado(
   _d: Designacion,
   cantidad: number,
   existencias: Existencia[],
-): "declinar_ya_disponible" | "solicitar_lt_planner" {
-  return cantidad <= stockTotal(existencias) ? "declinar_ya_disponible" : "solicitar_lt_planner";
+): "declinar_ya_disponible" | "revisar_lt" {
+  return cantidad <= stockTotal(existencias) ? "declinar_ya_disponible" : "revisar_lt";
 }
 
 /**
  * Puntos 4.2 y 4.3 — no planeado: primero se revisa disponibilidad (SPQ+, SAP,
- * Global Availability); si no hay, se ingresa la PINQ a fábrica.
+ * Global Availability); si no hay, "se ingresa la PINQ a fábrica O se consulta
+ * directo con el Planner dependiendo del segmento del producto".
+ *
+ * El segmento es lo que decide la vía: el QMS define *PT Inquery* como la
+ * herramienta de las designaciones de Power Transmission, frente a *OPI/PINQ*
+ * para el resto.
  */
 export function rutaNoPlaneado(
+  d: Designacion,
   existencias: Existencia[],
-): "revisar_disponibilidad_np" | "ingresar_pinq" {
-  return stockTotal(existencias) > 0 ? "revisar_disponibilidad_np" : "ingresar_pinq";
+): "revisar_disponibilidad_np" | "ingresar_pinq" | "consultar_planner" {
+  if (stockTotal(existencias) > 0) return "revisar_disponibilidad_np";
+  return d.segmento === "power_transmission" ? "consultar_planner" : "ingresar_pinq";
 }

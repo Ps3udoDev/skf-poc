@@ -10,11 +10,13 @@ const base: Designacion = {
   lcc: "PLAN",
   fpc: "1",
   pdiv: "P100",
+  segmento: "rodamiento",
   moq: 1,
   packQuantity: 1,
   precioLista: 120.5,
   vigente: true,
   reemplazadoPor: null,
+  reemplazoIndicadoFabrica: null,
   esNuevaCreacion: false,
 };
 
@@ -62,14 +64,32 @@ describe("Obsolescencia (puntos 4.6 y 4.7)", () => {
     expect(esObsoleto(base)).toBe(false);
   });
 
-  it("exige validar con Ing. de Ventas solo si el reemplazo no esta en sistema", () => {
-    const aviso = avisoReemplazo(true);
+  it("exige validar con Ing. de Ventas cuando la fabrica indica un reemplazo fuera de sistema", () => {
+    const aviso = avisoReemplazo({
+      ...base,
+      pcc: "O",
+      vigente: false,
+      reemplazoIndicadoFabrica: "6205-2RSL/C3",
+    });
     expect(aviso?.tipo).toBe("validar_con_ingeniero_ventas");
     expect(aviso?.punto).toBe("4.6");
     expect(aviso?.mensaje).toContain("Ingeniero de Ventas");
   });
 
-  it("no exige validacion cuando el reemplazo si esta en sistema", () => {
-    expect(avisoReemplazo(false)).toBeNull();
+  it("el aviso nombra la designacion original y el codigo que indica la fabrica", () => {
+    const aviso = avisoReemplazo({
+      ...base,
+      pcc: "O",
+      vigente: false,
+      reemplazoIndicadoFabrica: "6205-2RSL/C3",
+    });
+    expect(aviso?.mensaje).toContain("6205-2RSH/C3");
+    expect(aviso?.mensaje).toContain("6205-2RSL/C3");
+  });
+
+  it("no hay aviso cuando la fabrica no indica ningun reemplazo fuera de sistema", () => {
+    // El primer sub-caso (reemplazo en sistema) se resuelve por reemplazadoPor
+    // y no exige validacion tecnica.
+    expect(avisoReemplazo({ ...base, reemplazadoPor: "6205-2RSL/C3" })).toBeNull();
   });
 });

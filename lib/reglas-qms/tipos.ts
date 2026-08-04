@@ -11,6 +11,14 @@ export type LCC = "PLAN" | "NP";
 export type FPC = "1" | "2";
 export type Almacen = "PS" | "SL" | "XX";
 
+/**
+ * Punto 4.3 — "se ingresa la PINQ a fábrica o se consulta directo con el
+ * Planner dependiendo del segmento del producto". El QMS define *PT Inquery*
+ * como la herramienta de TE y PS de las designaciones de Power Transmission,
+ * frente a *OPI/PINQ* para el resto.
+ */
+export type Segmento = "rodamiento" | "power_transmission";
+
 export interface Designacion {
   designacion: string;
   descripcion: string;
@@ -19,11 +27,23 @@ export interface Designacion {
   lcc: LCC;
   fpc: FPC;
   pdiv: string;
+  segmento: Segmento;
   moq: number;
   packQuantity: number;
-  precioLista: number;
+  /**
+   * `null` cuando no hay Precio de Lista publicado: es la norma en FPC 2 (no
+   * son productos de Línea) y ocurre también en FPC 1 según el punto 5.2.
+   */
+  precioLista: number | null;
   vigente: boolean;
+  /** Punto 4.6, primer sub-caso: reemplazo que SÍ está en el catálogo. */
   reemplazadoPor: string | null;
+  /**
+   * Punto 4.6, segundo sub-caso: el código de reemplazo que la fábrica indica
+   * pero que NO está dado de alta en sistema. Por eso es texto libre y no una
+   * referencia al catálogo: ese código no existe en él.
+   */
+  reemplazoIndicadoFabrica: string | null;
   esNuevaCreacion: boolean;
 }
 
@@ -46,26 +66,33 @@ export interface ContextoSolicitud {
   cantidad: number;
   existencias: Existencia[];
   planta: Planta | null;
-  /** Designación de reemplazo ya resuelta, si la hay (punto 4.6). */
-  reemplazo: Designacion | null;
   /**
-   * `true` cuando el reemplazo no está en el sistema pero la fábrica lo indica.
-   * Es el segundo sub-caso del 4.6, el único que obliga a validar con el
-   * Ingeniero de Ventas.
+   * Designación de reemplazo ya resuelta, si la hay (punto 4.6, PRIMER
+   * sub-caso: el reemplazo está en sistema). El segundo sub-caso no se pasa
+   * como bandera: se deriva de `designacion.reemplazoIndicadoFabrica`.
    */
-  reemplazoSoloIndicadoPorFabrica?: boolean;
+  reemplazo: Designacion | null;
 }
 
-export type RutaQMS =
-  | "declinar_designacion_invalida"
-  | "declinar_planta_sin_ruta"
-  | "declinar_obsoleto_sin_reemplazo"
-  | "declinar_moq"
-  | "declinar_ya_disponible"
-  | "cotizar_con_reemplazo"
-  | "solicitar_lt_planner"
-  | "revisar_disponibilidad_np"
-  | "ingresar_pinq";
+/**
+ * Rutas del árbol del punto 4. La lista es un `const` y no solo un tipo para
+ * que los tests puedan recorrerla exhaustivamente en tiempo de ejecución: el
+ * puente hacia el enum SQL `motivo_declinado` depende de esa exhaustividad.
+ */
+export const RUTAS_QMS = [
+  "declinar_designacion_invalida",
+  "declinar_planta_sin_ruta",
+  "declinar_obsoleto_sin_reemplazo",
+  "declinar_moq",
+  "declinar_ya_disponible",
+  "cotizar_con_reemplazo",
+  "revisar_lt",
+  "revisar_disponibilidad_np",
+  "ingresar_pinq",
+  "consultar_planner",
+] as const;
+
+export type RutaQMS = (typeof RUTAS_QMS)[number];
 
 export type TipoAviso =
   | "pack_quantity_ajustado"

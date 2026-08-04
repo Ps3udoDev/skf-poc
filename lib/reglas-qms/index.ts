@@ -2,7 +2,7 @@ import { avisoPackQuantity, incumpleMoq, redondearAPack } from "./cantidades";
 import { avisoReemplazo, designacionValida, esObsoleto, plantaCotizable } from "./catalogo";
 import { esPlaneado, rutaNoPlaneado, rutaPlaneado, stockTotal } from "./planeacion";
 import { avisoNuevaCreacion, avisoPrecio, semanasExtraPorNuevaCreacion } from "./tiempos";
-import type { Aviso, ContextoSolicitud, EvaluacionQMS } from "./tipos";
+import type { Aviso, ContextoSolicitud, Designacion, EvaluacionQMS } from "./tipos";
 
 export * from "./cantidades";
 export * from "./catalogo";
@@ -56,22 +56,44 @@ export function evaluarSolicitud(ctx: ContextoSolicitud): EvaluacionQMS {
   // Trabajamos sobre el reemplazo si el original es obsoleto (4.6).
   let efectiva = designacion;
   const avisos: Aviso[] = [];
-  let rutaObsoleto: "cotizar_con_reemplazo" | null = null;
+  let mensajeObsoleto: string | null = null;
 
   if (esObsoleto(designacion)) {
-    // 4.7 — obsoleto sin reemplazo.
-    if (!ctx.reemplazo) {
+    if (ctx.reemplazo) {
+      // 4.6, primer sub-caso — "si el reemplazo está en sistema se cotiza
+      // indicando al cliente el cambio". Conocemos el reemplazo por completo,
+      // así que el resto del árbol se evalúa sobre él. Sin aviso de Ing. de
+      // Ventas: esa validación es exclusiva del segundo sub-caso.
+      efectiva = ctx.reemplazo;
+      mensajeObsoleto =
+        `${designacion.designacion} está obsoleta. Se cotiza su reemplazo ` +
+        `${ctx.reemplazo.designacion}, indicando el cambio al cliente.`;
+    } else if (designacion.reemplazoIndicadoFabrica !== null) {
+      // 4.6, segundo sub-caso — "si no está en sistema, pero la fábrica lo
+      // indica se cotiza y se le pide al cliente que revise con su Ing. de
+      // Ventas si dicho reemplazo cumple con sus necesidades técnicas".
+      //
+      // DELIBERADO: el resto del árbol (MOQ, pack quantity, FPC, planeación)
+      // se sigue evaluando sobre la designación ORIGINAL, no sobre el
+      // reemplazo. No conocemos el MOQ, el pack quantity ni el FPC del
+      // reemplazo porque, por definición de este sub-caso, no está en el
+      // sistema. Inventarlos sería exactamente la alucinación que el diseño
+      // del POC prohíbe. El aviso de validación con el Ing. de Ventas es lo
+      // que cubre esa incertidumbre frente al cliente.
+      mensajeObsoleto =
+        `${designacion.designacion} está obsoleta. La fábrica indica como reemplazo ` +
+        `${designacion.reemplazoIndicadoFabrica}, que aún no está en sistema: se cotiza ` +
+        "sobre los datos de la designación original.";
+      const aviso = avisoReemplazo(designacion);
+      if (aviso) avisos.push(aviso);
+    } else {
+      // 4.7 — obsoleto sin reemplazo de ninguna de las dos clases.
       return declinar(
         "declinar_obsoleto_sin_reemplazo",
         "4.7",
         `${designacion.designacion} está obsoleta y no tiene reemplazo. Se declina y se informa al cliente.`,
       );
     }
-    // 4.6 — obsoleto con reemplazo: se cotiza indicando el cambio.
-    efectiva = ctx.reemplazo;
-    rutaObsoleto = "cotizar_con_reemplazo";
-    const aviso = avisoReemplazo(ctx.reemplazoSoloIndicadoPorFabrica === true);
-    if (aviso) avisos.push(aviso);
   }
 
   // 4.4 — MOQ mayor a lo pedido.
@@ -96,14 +118,13 @@ export function evaluarSolicitud(ctx: ContextoSolicitud): EvaluacionQMS {
 
   const semanasExtraTE = semanasExtraPorNuevaCreacion(efectiva);
 
-  // Si venimos de un obsoleto con reemplazo, esa es la ruta que se comunica.
-  if (rutaObsoleto) {
+  // Si venimos de un obsoleto con reemplazo (de cualquiera de los dos
+  // sub-casos del 4.6), esa es la ruta que se comunica.
+  if (mensajeObsoleto !== null) {
     return {
-      ruta: rutaObsoleto,
+      ruta: "cotizar_con_reemplazo",
       punto: "4.6",
-      mensaje:
-        `${designacion.designacion} está obsoleta. Se cotiza su reemplazo ` +
-        `${efectiva.designacion}, indicando el cambio al cliente.`,
+      mensaje: mensajeObsoleto,
       declinada: false,
       avisos,
       cantidadEfectiva,
@@ -120,7 +141,7 @@ export function evaluarSolicitud(ctx: ContextoSolicitud): EvaluacionQMS {
       mensaje:
         ruta === "declinar_ya_disponible"
           ? `Producto planeado (LCC=PLAN) con ${stockTotal(ctx.existencias)} piezas disponibles: ya estaba visible en WCL, no requiere cotización.`
-          : `Producto planeado (LCC=PLAN) con existencias insuficientes: se solicita el tiempo de entrega al planner de la PDIV ${efectiva.pdiv}.`,
+          : `Producto planeado (LCC=PLAN) con existencias insuficientes: se revisa el LT estándar o se solicita el tiempo de entrega al planner de la PDIV ${efectiva.pdiv}.`,
       declinada: ruta === "declinar_ya_disponible",
       avisos,
       cantidadEfectiva,
@@ -129,17 +150,32 @@ export function evaluarSolicitud(ctx: ContextoSolicitud): EvaluacionQMS {
   }
 
   // 4.2 / 4.3 — no planeado.
-  const ruta = rutaNoPlaneado(ctx.existencias);
+  const ruta = rutaNoPlaneado(efectiva, ctx.existencias);
   return {
     ruta,
     punto: ruta === "revisar_disponibilidad_np" ? "4.2" : "4.3",
-    mensaje:
-      ruta === "revisar_disponibilidad_np"
-        ? "Producto No Planeado (LCC=NP) con disponibilidad: se revisa en SPQ+, SAP o Global Availability."
-        : `Producto No Planeado (LCC=NP) sin disponibilidad: se ingresa PINQ a la fábrica ${efectiva.pdiv}.`,
+    mensaje: mensajeNoPlaneado(ruta, efectiva),
     declinada: false,
     avisos,
     cantidadEfectiva,
     semanasExtraTE,
   };
+}
+
+/** Puntos 4.2 y 4.3 — las tres salidas del no planeado. */
+function mensajeNoPlaneado(
+  ruta: "revisar_disponibilidad_np" | "ingresar_pinq" | "consultar_planner",
+  d: Designacion,
+): string {
+  switch (ruta) {
+    case "revisar_disponibilidad_np":
+      return "Producto No Planeado (LCC=NP) con disponibilidad: se revisa en SPQ+, SAP o Global Availability.";
+    case "consultar_planner":
+      return (
+        "Producto No Planeado (LCC=NP) sin disponibilidad y del segmento Power Transmission: " +
+        `se consulta directo con el Planner de la PDIV ${d.pdiv} vía PT Inquery.`
+      );
+    default:
+      return `Producto No Planeado (LCC=NP) sin disponibilidad: se ingresa PINQ a la fábrica ${d.pdiv}.`;
+  }
 }

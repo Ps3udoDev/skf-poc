@@ -16,11 +16,13 @@ const base: Designacion = {
   lcc: "PLAN",
   fpc: "1",
   pdiv: "P100",
+  segmento: "rodamiento",
   moq: 1,
   packQuantity: 1,
   precioLista: 120.5,
   vigente: true,
   reemplazadoPor: null,
+  reemplazoIndicadoFabrica: null,
   esNuevaCreacion: false,
 };
 
@@ -59,25 +61,39 @@ describe("Ruta de producto planeado (punto 4.1)", () => {
     expect(rutaPlaneado(base, 350, conStock)).toBe("declinar_ya_disponible");
   });
 
-  it("pide LT al planner cuando la cantidad supera el stock", () => {
-    expect(rutaPlaneado(base, 500, conStock)).toBe("solicitar_lt_planner");
+  it("revisa LT (estandar o del planner) cuando la cantidad supera el stock", () => {
+    expect(rutaPlaneado(base, 500, conStock)).toBe("revisar_lt");
   });
 
-  it("pide LT al planner cuando no hay ninguna existencia", () => {
-    expect(rutaPlaneado(base, 1, [])).toBe("solicitar_lt_planner");
+  it("revisa LT cuando no hay ninguna existencia", () => {
+    expect(rutaPlaneado(base, 1, [])).toBe("revisar_lt");
   });
 });
 
 describe("Ruta de producto no planeado (puntos 4.2 y 4.3)", () => {
+  const np: Designacion = { ...base, lcc: "NP", pcc: "N" };
+
   it("revisa disponibilidad cuando hay existencias", () => {
-    expect(rutaNoPlaneado(conStock)).toBe("revisar_disponibilidad_np");
+    expect(rutaNoPlaneado(np, conStock)).toBe("revisar_disponibilidad_np");
   });
 
   it("ingresa PINQ a fabrica cuando no hay disponibilidad", () => {
-    expect(rutaNoPlaneado([{ almacen: "PS", cantidad: 0 }])).toBe("ingresar_pinq");
+    expect(rutaNoPlaneado(np, [{ almacen: "PS", cantidad: 0 }])).toBe("ingresar_pinq");
   });
 
   it("ingresa PINQ cuando no hay ni registro de inventario", () => {
-    expect(rutaNoPlaneado([])).toBe("ingresar_pinq");
+    expect(rutaNoPlaneado(np, [])).toBe("ingresar_pinq");
+  });
+
+  it("consulta directo con el Planner si el segmento es Power Transmission", () => {
+    // Punto 4.3: la via depende del segmento. PT usa PT Inquery / Planner.
+    expect(rutaNoPlaneado({ ...np, segmento: "power_transmission" }, [])).toBe("consultar_planner");
+  });
+
+  it("el segmento no altera la rama con disponibilidad (4.2)", () => {
+    // El segmento solo decide la salida del 4.3, no la del 4.2.
+    expect(rutaNoPlaneado({ ...np, segmento: "power_transmission" }, conStock)).toBe(
+      "revisar_disponibilidad_np",
+    );
   });
 });
