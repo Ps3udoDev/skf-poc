@@ -33,6 +33,38 @@ El código de referencia del brief (no una transcripción mía) tenía un defect
 - **Efecto sobre las proporciones existentes:** ampliar el rango de diámetro sí movió ligeramente los números medidos con la semilla `20260803` y 5.000 designaciones (más valores de diámetro posibles diluyen algunas coincidencias). Los pares-prefijo bajaron de 685 a **461** (sigue muy por encima del mínimo de 50) y la proporción de `power_transmission` bajó de 9.82% a **9.7%** (sigue dentro de 8%–25%). Ambos tests pasan sin tocar sus umbrales ni el peso de ninguna familia — no hizo falta ajustar nada más.
 - Generar 30.000 designaciones con la semilla `20260803` toma **~30 ms** en esta máquina — nada cerca del límite de reintentos (`30000 * 200` intentos).
 
+### Ronda de arreglo 2 — el rango de diámetro debe ser por familia, no una constante global
+
+El arreglo de la ronda 1 amplió el código de diámetro a 100 valores (`"00"`–`"99"`, hasta 495 mm) **igual para las 9 familias**. Eso resolvió el espacio combinatorio, pero introdujo un problema distinto: tres familias empezaron a generar diámetros que no existen en ningún catálogo público. Medido sobre 30.000 designaciones: **71%** de "Rodamiento de bolas a rótula" por encima de 140 mm, **59%** de "Unidad de rodamiento" por encima de 200 mm, **56%** de "Rodamiento de agujas" por encima de 220 mm. Un rodamiento de bolas a rótula de 345 mm no existe — y esto ataca la misma verosimilitud que la restricción de "sin datos reales de SKF, pero con patrones públicos reales" protege: si el catálogo produce tipos de producto físicamente imposibles, un ingeniero de SKF que lo revise pierde confianza en el demo completo.
+
+**Arreglo aplicado — `codigoDiametroMax` por `Familia`, no una constante compartida:**
+
+- Se añadió el campo `codigoDiametroMax: number` a la interfaz `Familia` (código máximo inclusive; convertir a mm con `diametroInterior`). `generarDesignaciones` ahora dibuja `a.entero(0, familia.codigoDiametroMax)` en vez de usar `CANTIDAD_CODIGOS_DIAMETRO - 1` para todas. `espacioCombinatorio` también se actualizó para usar `(f.codigoDiametroMax + 1)` por familia en vez de la constante global.
+- Topes elegidos, con conversión hecha a mano (código = mm / 5 para mm ≥ 20; recordar que 04 en adelante es ×5):
+
+  | Familia | `codigoDiametroMax` | mm máximo | Motivo |
+  |---|---|---|---|
+  | Rodamiento rígido de bolas | 99 (sin tope propio) | 495 | Existen rodamientos rígidos de bolas grandes en catálogo público. |
+  | Rodamiento de rodillos cónicos | 99 (sin tope propio) | 495 | Uso común en minería/cemento con diámetros grandes. |
+  | Rodamiento de rodillos a rótula | 99 (sin tope propio) | 495 | Familia típica de aplicaciones pesadas. |
+  | Rodamiento de rodillos cilíndricos | 99 (sin tope propio) | 495 | También alcanza diámetros grandes en catálogo público. |
+  | Rodamiento de bolas a rótula | **28** | **140** | Tope real de catálogo público para esta familia (instrucción explícita de esta ronda). |
+  | Rodamiento de agujas | **44** | **220** | Ídem. |
+  | Unidad de rodamiento | **40** | **200** | Ídem. |
+  | Sello radial | **30** | **150** | Acotado con criterio: sellos radiales genéricos rara vez cubren ejes mayores en catálogo público. |
+  | Transmisión de potencia | **20** | 100 (nominal) | El código de dos dígitos no representa diámetro de eje en esta familia (los designadores de correas/poleas usan otras unidades), pero se acota igual para no producir números de dos dígitos implausibles. |
+
+  El campo es **por familia y no una constante global** justamente porque el diámetro máximo plausible varía mucho de una familia de producto a otra — la lección de esta ronda es que "ampliar el rango" nunca es una operación uniforme sobre todo el catálogo; hay que revisar familia por familia qué es físicamente real.
+
+- **El espacio combinatorio bajó al acotar tres familias, así que se compensó ampliando sufijos reales en las familias que sí alcanzan diámetros grandes** (instrucción explícita: subir el tope de esas familias o añadir sufijos reales, nunca relajar los topes de las acotadas ni bajar el umbral del test):
+  - "Rodamiento rígido de bolas": se añadieron `"-2ZNR"`, `"-2RS1NR"` (variantes con ranura para anillo de retención, notación pública real) y `"/C2"` (clase de holgura reducida, ya existían `/C3` y `/C4`). Sufijos: 12 → 15.
+  - "Rodamiento de rodillos cilíndricos": se añadieron `"/C2"` y `"/C4"` (clases de holgura, mismo patrón que `/C3` ya existente). Sufijos: 5 → 7.
+  - No se tocaron series ni prefijos de ninguna familia (solo sufijos reales y ya cubiertos por el patrón de clases de holgura/variantes de sello que el catálogo ya usaba).
+- **Espacio combinatorio resultante: 49.718** (antes 53.500 con la constante global; sigue por encima del piso de 45.000 exigido, con margen de ~1.66× sobre los 30.000 pedidos por la Tarea 10).
+- **Test nuevo que fija la regla:** `"ninguna designacion supera el diametro maximo real de su familia"`, dentro de `describe("generacion")`. Genera 30.000 designaciones, calcula el diámetro máximo permitido por familia a partir de `codigoDiametroMax` (vía `diametroInterior`), y compara cada designación generada contra el máximo de su propia familia — con un mensaje de fallo que nombra la familia, la designación exacta y los mm de más. Esto es lo que impide que alguien reintroduzca una constante global sin darse cuenta.
+- **Verificación sobre 30.000 designaciones (semilla `20260803`):** el diámetro máximo observado en cada familia acotada coincidió exactamente con su tope — 140 mm, 200 mm y 220 mm respectivamente — confirmando que el nuevo test cubre el caso real.
+- **Efecto sobre los tests existentes:** ninguno necesitó ajuste de umbral. Con la misma semilla y 5.000 designaciones, los pares-prefijo subieron de 461 a **580** (más aún por encima del mínimo de 50) y la proporción de `power_transmission` bajó de 9.7% a **8.7%** (sigue dentro de 8%–25%, aunque con menos margen que antes — no se tocó el peso porque ya pasa; si una ronda futura la acerca más al 8%, ahí sí habría que subir el peso de esa familia, no el umbral).
+
 ## Contrato que exponen estos archivos
 
 `scripts/seed/nomenclatura.ts`:
@@ -46,6 +78,7 @@ export interface Familia {
   prefijos: readonly string[];
   series: readonly string[];
   sufijos: readonly string[];
+  codigoDiametroMax: number; // código máximo (inclusive) de diámetro para esta familia; ver diametroInterior
   peso: number;
   descripcionBase: string;
 }
@@ -55,11 +88,11 @@ export const FAMILIAS: readonly Familia[]; // 9 elementos
 export function diametroInterior(codigo: string): number;
 // "00"->10, "01"->12, "02"->15, "03"->17; de "04" en adelante, Number(codigo) * 5
 
-export const CANTIDAD_CODIGOS_DIAMETRO: number; // 100 ("00" a "99")
+export const CANTIDAD_CODIGOS_DIAMETRO: number; // 100 ("00" a "99"); techo absoluto del formato, no un límite de ninguna familia
 
 export function espacioCombinatorio(familias?: readonly Familia[]): number;
-// Tamaño teórico del espacio combinatorio, calculado desde FAMILIAS sin generar nada.
-// Con las FAMILIAS actuales: 53500.
+// Tamaño teórico del espacio combinatorio, calculado desde FAMILIAS (usa codigoDiametroMax por familia) sin generar nada.
+// Con las FAMILIAS actuales: 49718.
 
 export interface DesignacionBase {
   designacion: string;
@@ -79,7 +112,8 @@ Notas para quien consume (tarea siguiente):
 - El campo `familia` de `DesignacionBase` es el string `Familia.nombre` (español, con acentos, p. ej. `"Rodamiento rígido de bolas"`), no un slug ni un id.
 - El campo `descripcion` siempre tiene más de 10 caracteres y sigue el patrón `"<descripcionBase>, diámetro interior <mm> mm"`.
 - La `designacion` puede o no llevar sufijo (regex `/[-/]/` distingue con vs. sin sufijo/separador); esto es intencional para que existan pares "base" / "con sufijo" que son prefijo uno del otro.
-- Con `cantidad = 5000` y semilla `20260803`, se generan **461 pares designación-es-prefijo-de-otra** y una proporción de `power_transmission` de **9.7%**. Con `cantidad = 30000` y la misma semilla, la generación es exitosa (espacio combinatorio total: 53.500) y tarda ~30 ms. Estos números son deterministas para esa semilla y cantidad exactas; no están garantizados para otras combinaciones, aunque los tests verifican que se mantienen dentro de rango con esa misma semilla.
+- Con `cantidad = 5000` y semilla `20260803`, se generan **580 pares designación-es-prefijo-de-otra** y una proporción de `power_transmission` de **8.7%**. Con `cantidad = 30000` y la misma semilla, la generación es exitosa (espacio combinatorio total: 49.718) y tarda ~34 ms; el diámetro máximo observado en cada familia acotada coincide exactamente con su `codigoDiametroMax` (140 mm, 200 mm, 220 mm). Estos números son deterministas para esa semilla y cantidad exactas; no están garantizados para otras combinaciones, aunque los tests verifican que se mantienen dentro de rango con esa misma semilla.
+- Cada familia trae su propio `codigoDiametroMax`: quien consuma `FAMILIAS` para mostrar u ordenar por diámetro debe leer ese campo por familia, no asumir un rango uniforme de 0-99.
 
 ## Qué falta / qué NO hace
 
@@ -88,7 +122,8 @@ Notas para quien consume (tarea siguiente):
 - No garantiza que las designaciones sean únicas *entre distintas llamadas* a `generarDesignaciones` (cada llamada arranca su propio `Set` de `vistas`); si la tarea siguiente necesita unicidad global entre múltiples generaciones, debe deduplicarlas externamente o generar todo con una sola llamada.
 - No valida que las designaciones no coincidan con códigos reales de catálogo SKF más allá de seguir patrones públicos genéricos — es responsabilidad de las restricciones globales del proyecto, no de esta tarea, y se siguió esa restricción al diseñar `FAMILIAS`.
 - El campo `peso` de `Familia` no es un porcentaje directo de la proporción final observada (ver nota sobre colisiones arriba); quien ajuste `FAMILIAS` en el futuro debe volver a medir la proporción real con el script de verificación, no asumir que peso == proporción.
-- El espacio combinatorio actual (53.500) tiene un techo: si una tarea futura pide generar más de ~40.000 designaciones únicas de una sola vez, conviene volver a medir el margen real con `espacioCombinatorio()` antes de asumir que cabe — a partir de cierta ocupación del espacio, las colisiones empiezan a alargar sensiblemente el tiempo de generación (aunque a 30.000 sobre 53.500, ~56% de ocupación, el costo sigue siendo trivial, ~30 ms).
+- El espacio combinatorio actual (49.718) tiene un techo: si una tarea futura pide generar más de ~35.000-40.000 designaciones únicas de una sola vez, conviene volver a medir el margen real con `espacioCombinatorio()` antes de asumir que cabe — a partir de cierta ocupación del espacio, las colisiones empiezan a alargar sensiblemente el tiempo de generación (aunque a 30.000 sobre 49.718, ~60% de ocupación, el costo sigue siendo trivial, ~34 ms).
+- **Subir un `codigoDiametroMax` no es gratis.** Las cinco familias acotadas (bolas a rótula, unidad de rodamiento, agujas, sello radial, transmisión de potencia) tienen su tope fijado a un diámetro real de catálogo público o a un criterio explícito de plausibilidad; subirlo para ganar espacio combinatorio reintroduciría el problema de la Ronda de arreglo 2 (diámetros implausibles). Las otras cuatro familias (rígidos de bolas, rodillos cónicos, rodillos a rótula, rodillos cilíndricos) ya están en `codigoDiametroMax: 99`, el máximo absoluto que permite un código de dos dígitos — no se puede subir más sin cambiar el formato de código. Si hace falta más espacio combinatorio en el futuro, la vía correcta es añadir series o sufijos reales a esas cuatro familias amplias (como se hizo en esta ronda con `/C2`, `/C4`, `-2ZNR`, `-2RS1NR`), no tocar los topes de las familias acotadas ni el umbral del test.
 
 ## Cómo verificar
 
@@ -96,13 +131,13 @@ Ejecutar los tests de esta tarea:
 ```bash
 pnpm test nomenclatura
 ```
-Esperado: `Test Files 1 passed (1)`, `Tests 12 passed (12)`.
+Esperado: `Test Files 1 passed (1)`, `Tests 13 passed (13)`.
 
 Ejecutar toda la suite (verificar que no hay regresiones):
 ```bash
 pnpm test
 ```
-Esperado: `Test Files 10 passed (10)`, `Tests 108 passed (108)`.
+Esperado: `Test Files 10 passed (10)`, `Tests 109 passed (109)`.
 
 Verificar tipos:
 ```bash
@@ -116,16 +151,23 @@ pnpm lint
 ```
 Esperado: sin errores sobre `scripts/seed/nomenclatura.ts` ni `scripts/seed/nomenclatura.test.ts` (puede haber un "info" preexistente de migración de configuración de Biome, no relacionado con esta tarea).
 
-Inspeccionar directamente el espacio combinatorio, el conteo de pares-prefijo, la proporción de `power_transmission` y el tiempo de generar 30.000: crear un archivo temporal `scripts/seed/_tmp_check.ts` (fuera del repo versionado, borrar después) con:
+Inspeccionar directamente el espacio combinatorio, el diámetro máximo observado por familia, el conteo de pares-prefijo, la proporción de `power_transmission` y el tiempo de generar 30.000: crear un archivo temporal `scripts/seed/_tmp_check.ts` (fuera del repo versionado, borrar después) con:
 ```ts
 import { crearAleatorio } from "./aleatorio";
-import { espacioCombinatorio, generarDesignaciones } from "./nomenclatura";
+import { espacioCombinatorio, FAMILIAS, generarDesignaciones } from "./nomenclatura";
 
 console.log("espacio combinatorio:", espacioCombinatorio());
 
 const t0 = Date.now();
 const d30 = generarDesignaciones(crearAleatorio(20260803), 30000);
 console.log("30000 generadas en", Date.now() - t0, "ms; unicas:", new Set(d30.map((x) => x.designacion)).size);
+
+const maxObservado = new Map<string, number>();
+for (const x of d30) {
+  const mm = Number(x.descripcion.match(/diámetro interior (\d+) mm/)?.[1]);
+  maxObservado.set(x.familia, Math.max(maxObservado.get(x.familia) ?? 0, mm));
+}
+for (const f of FAMILIAS) console.log(f.nombre, "max observado:", maxObservado.get(f.nombre), "mm | tope:", f.codigoDiametroMax);
 
 const d = generarDesignaciones(crearAleatorio(20260803), 5000);
 const codigos = d.map((x) => x.designacion);
@@ -135,4 +177,4 @@ console.log("pares prefijo (5000):", prefijos.length);
 console.log("proporcion pt (5000):", d.filter((x) => x.segmento === "power_transmission").length / d.length);
 ```
 y ejecutarlo con `pnpm exec tsx scripts/seed/_tmp_check.ts`.
-Esperado: `espacio combinatorio: 53500`, `30000 generadas en ~30 ms; unicas: 30000`, `pares prefijo (5000): 461`, `proporcion pt (5000): 0.097`.
+Esperado: `espacio combinatorio: 49718`; `30000 generadas en ~34 ms; unicas: 30000`; para "Rodamiento de bolas a rótula", "Unidad de rodamiento" y "Rodamiento de agujas" el máximo observado coincide exactamente con 140, 200 y 220 mm respectivamente; `pares prefijo (5000): 580`; `proporcion pt (5000): 0.087`.

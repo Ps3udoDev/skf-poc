@@ -11,6 +11,14 @@ export interface Familia {
   series: readonly string[];
   /** Sufijos técnicos posibles. Cadena vacía = designación base sin sufijo. */
   sufijos: readonly string[];
+  /**
+   * Código de diámetro máximo (inclusive) que puede tomar esta familia.
+   * Ver `diametroInterior` para la conversión a mm. Es por familia y no una
+   * constante global porque el diámetro máximo plausible de catálogo público
+   * varía mucho de una familia de producto a otra (ver Ronda de arreglo 2 en
+   * el contexto de esta tarea).
+   */
+  codigoDiametroMax: number;
   /** Peso relativo en el catálogo. */
   peso: number;
   descripcionBase: string;
@@ -26,9 +34,13 @@ export function diametroInterior(codigo: string): number {
 }
 
 /**
- * Cantidad de códigos de diámetro posibles: "00" a "99" (dos dígitos), lo que
- * cubre desde 10 mm hasta 495 mm de diámetro interior — rango real de la
- * nomenclatura pública de rodamientos, incluyendo rodamientos grandes.
+ * Techo absoluto de códigos de diámetro de dos dígitos: "00" a "99", lo que
+ * cubre desde 10 mm hasta 495 mm de diámetro interior. Es el límite del
+ * formato de código, no un límite físico de ninguna familia en particular.
+ * Las familias cuyo catálogo público sí alcanza rodamientos grandes (rígidos
+ * de bolas, rodillos cónicos, rodillos a rótula, rodillos cilíndricos) usan
+ * `CANTIDAD_CODIGOS_DIAMETRO - 1` como su `codigoDiametroMax`; el resto usa
+ * un tope propio y menor (ver cada `Familia` en `FAMILIAS`).
  */
 export const CANTIDAD_CODIGOS_DIAMETRO = 100;
 
@@ -51,7 +63,12 @@ export const FAMILIAS: readonly Familia[] = [
       "-2RS1/C3",
       "-2RSH/C3",
       "/W64",
+      "-2ZNR",
+      "-2RS1NR",
+      "/C2",
     ],
+    // Sin tope propio: los rodamientos rígidos de bolas grandes (código "99" = 495 mm) existen en catálogo público.
+    codigoDiametroMax: CANTIDAD_CODIGOS_DIAMETRO - 1,
     peso: 32,
     descripcionBase: "Rodamiento rígido de bolas, una hilera",
   },
@@ -61,6 +78,8 @@ export const FAMILIAS: readonly Familia[] = [
     prefijos: [""],
     series: ["302", "303", "320", "322", "323", "329", "330", "331", "332"],
     sufijos: ["", "/Q", "/DF", "/DB", "/C3"],
+    // Sin tope propio: usados en minería y cemento con diámetros grandes.
+    codigoDiametroMax: CANTIDAD_CODIGOS_DIAMETRO - 1,
     peso: 14,
     descripcionBase: "Rodamiento de rodillos cónicos, una hilera",
   },
@@ -70,6 +89,8 @@ export const FAMILIAS: readonly Familia[] = [
     prefijos: [""],
     series: ["222", "223", "230", "231", "232", "240", "241"],
     sufijos: ["", " E", " CC/W33", " CCK/W33", " E/C3", " EK"],
+    // Sin tope propio: familia típica de aplicaciones pesadas con diámetros grandes.
+    codigoDiametroMax: CANTIDAD_CODIGOS_DIAMETRO - 1,
     peso: 12,
     descripcionBase: "Rodamiento de rodillos a rótula, dos hileras",
   },
@@ -78,7 +99,9 @@ export const FAMILIAS: readonly Familia[] = [
     segmento: "rodamiento",
     prefijos: ["NU", "NJ", "NUP", "N", "NCF"],
     series: ["2", "3", "4", "10", "22", "23"],
-    sufijos: ["", " ECP", " ECJ", " ECML", "/C3"],
+    sufijos: ["", " ECP", " ECJ", " ECML", "/C3", "/C2", "/C4"],
+    // Sin tope propio: también alcanza diámetros grandes en catálogo público.
+    codigoDiametroMax: CANTIDAD_CODIGOS_DIAMETRO - 1,
     peso: 12,
     descripcionBase: "Rodamiento de rodillos cilíndricos",
   },
@@ -88,6 +111,8 @@ export const FAMILIAS: readonly Familia[] = [
     prefijos: [""],
     series: ["12", "13", "22", "23"],
     sufijos: ["", " K", " ETN9", " K/C3"],
+    // Tope real de catálogo público para esta familia: código 28 = 140 mm.
+    codigoDiametroMax: 28,
     peso: 6,
     descripcionBase: "Rodamiento de bolas a rótula, dos hileras",
   },
@@ -97,6 +122,8 @@ export const FAMILIAS: readonly Familia[] = [
     prefijos: ["HK", "BK", "NA", "NKI", "NK"],
     series: ["", "48", "49", "69"],
     sufijos: ["", " TN", "/C3"],
+    // Tope real de catálogo público para esta familia: código 44 = 220 mm.
+    codigoDiametroMax: 44,
     peso: 6,
     descripcionBase: "Rodamiento de agujas",
   },
@@ -106,6 +133,8 @@ export const FAMILIAS: readonly Familia[] = [
     prefijos: ["YAR", "YET", "YEL", "SY", "SYJ", "FY", "FYJ"],
     series: [""],
     sufijos: ["", "-2F", " TF", " M", " WF", "-2RF/HV"],
+    // Tope real de catálogo público para esta familia: código 40 = 200 mm.
+    codigoDiametroMax: 40,
     peso: 8,
     descripcionBase: "Unidad de rodamiento con soporte",
   },
@@ -115,6 +144,8 @@ export const FAMILIAS: readonly Familia[] = [
     prefijos: ["HMSA10", "HMS5", "CR"],
     series: [""],
     sufijos: ["", " RG", " V", " R"],
+    // Código 30 = 150 mm: los sellos radiales genéricos de catálogo público rara vez cubren ejes mayores.
+    codigoDiametroMax: 30,
     peso: 3,
     descripcionBase: "Sello radial de eje",
   },
@@ -124,6 +155,10 @@ export const FAMILIAS: readonly Familia[] = [
     prefijos: ["PHE", "PHG", "PHC"],
     series: ["XPZ", "SPA", "SPB", "CH", "TB"],
     sufijos: ["", "-A", "-B", "-SD"],
+    // Código 20: el código de dos dígitos no representa un diámetro de eje en
+    // esta familia (los designadores de correas/poleas usan otras unidades),
+    // pero se acota igual para no producir números de dos dígitos implausibles.
+    codigoDiametroMax: 20,
     peso: 9,
     descripcionBase: "Componente de transmisión de potencia",
   },
@@ -147,7 +182,7 @@ export interface DesignacionBase {
 export function espacioCombinatorio(familias: readonly Familia[] = FAMILIAS): number {
   return familias.reduce(
     (total, f) =>
-      total + f.prefijos.length * f.series.length * f.sufijos.length * CANTIDAD_CODIGOS_DIAMETRO,
+      total + f.prefijos.length * f.series.length * f.sufijos.length * (f.codigoDiametroMax + 1),
     0,
   );
 }
@@ -171,7 +206,7 @@ export function generarDesignaciones(a: Aleatorio, cantidad: number): Designacio
     const familia = a.elegirPonderado(pesos);
     const prefijo = a.elegir(familia.prefijos);
     const serie = a.elegir(familia.series);
-    const codigoDiametro = String(a.entero(0, CANTIDAD_CODIGOS_DIAMETRO - 1)).padStart(2, "0");
+    const codigoDiametro = String(a.entero(0, familia.codigoDiametroMax)).padStart(2, "0");
     const sufijo = a.elegir(familia.sufijos);
 
     const separador = prefijo && !serie ? " " : "";

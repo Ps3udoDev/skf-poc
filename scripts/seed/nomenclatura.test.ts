@@ -56,6 +56,24 @@ describe("generacion", () => {
     expect(new Set(d.map((x) => x.designacion)).size).toBe(30000);
   });
 
+  it("ninguna designacion supera el diametro maximo real de su familia", () => {
+    const maximoMmPorFamilia = new Map(
+      FAMILIAS.map((f) => [
+        f.nombre,
+        diametroInterior(String(f.codigoDiametroMax).padStart(2, "0")),
+      ]),
+    );
+    const d = generarDesignaciones(crearAleatorio(20260803), 30000);
+    for (const x of d) {
+      const mm = Number(x.descripcion.match(/diámetro interior (\d+) mm/)?.[1]);
+      const maximo = maximoMmPorFamilia.get(x.familia);
+      expect(
+        mm,
+        `${x.familia}: "${x.designacion}" tiene diametro ${mm} mm, supera el maximo real ${maximo} mm de esa familia`,
+      ).toBeLessThanOrEqual(maximo as number);
+    }
+  });
+
   it("es determinista con la misma semilla", () => {
     const a = generarDesignaciones(crearAleatorio(42), 300);
     const b = generarDesignaciones(crearAleatorio(42), 300);
