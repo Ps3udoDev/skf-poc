@@ -1,12 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ahoraSimulada, estadoDePlanta } from "@/lib/estado-fabricas";
 import type { Estimacion } from "@/lib/estimador/calculo";
 import { estimarTE } from "@/lib/estimador/estimador";
-import { construirContexto, obtenerDesignacion } from "@/lib/fuentes";
+import { construirContexto, obtenerDesignacion, plantaCompleta } from "@/lib/fuentes";
 import { emitirEvento } from "@/lib/metricas/emitir";
+import { consultarInventarioExterno } from "@/lib/mock/inventario";
 import { evaluarSolicitud } from "@/lib/reglas-qms";
 import { leerSesion } from "@/lib/sesion-demo/leer";
+import type { SesionDemo } from "@/lib/sesion-demo/tipos";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { validar } from "@/lib/validador/cascada";
 import { construirSugerencia } from "@/lib/validador/sugerencia";
@@ -14,16 +17,44 @@ import type { ResultadoValidacion } from "@/lib/validador/tipos";
 
 export interface ResultadoBusquedaPortal extends ResultadoValidacion {
   estimaciones: Record<string, Estimacion | null>;
+  sistemaNoDisponible?: { pdiv: string; planta: string };
+  plantasEnVentana: Record<string, { pdiv: string; planta: string }>;
 }
 
-async function conEstimaciones(resultado: ResultadoValidacion, cantidad: number) {
-  const pares = await Promise.all(
-    resultado.candidatos.map(
-      async ({ designacion }) =>
-        [designacion.designacion, await estimarTE(designacion.designacion, cantidad)] as const,
-    ),
+async function conEstimaciones(
+  resultado: ResultadoValidacion,
+  cantidad: number,
+  sesion: SesionDemo,
+): Promise<ResultadoBusquedaPortal> {
+  const contextoCandidatos = await Promise.all(
+    resultado.candidatos.map(async ({ designacion }) => {
+      const [estimacion, planta] = await Promise.all([
+        estimarTE(designacion.designacion, cantidad),
+        plantaCompleta(designacion.pdiv),
+      ]);
+      const enVentana =
+        planta &&
+        estadoDePlanta(
+          planta,
+          ahoraSimulada(sesion.relojOffsetMin),
+          sesion.plantasOverride[planta.pdiv],
+        ) === "ventana"
+          ? { pdiv: planta.pdiv, planta: planta.nombre }
+          : null;
+      return { codigo: designacion.designacion, estimacion, enVentana };
+    }),
   );
-  return { ...resultado, estimaciones: Object.fromEntries(pares) };
+  const plantasEnVentana: Record<string, { pdiv: string; planta: string }> = {};
+  for (const { codigo, enVentana } of contextoCandidatos) {
+    if (enVentana) plantasEnVentana[codigo] = enVentana;
+  }
+  return {
+    ...resultado,
+    estimaciones: Object.fromEntries(
+      contextoCandidatos.map(({ codigo, estimacion }) => [codigo, estimacion]),
+    ),
+    plantasEnVentana,
+  };
 }
 
 /** Único punto de bifurcación entre la experiencia actual y la solución. */
@@ -49,6 +80,20 @@ export async function buscarDesignacion(
         mensaje: "No se encontraron resultados para esa designación.",
         candidatos: [],
         estimaciones: {},
+        plantasEnVentana: {},
+      };
+    }
+    const inventario = await consultarInventarioExterno(exacta.designacion);
+    if (inventario.tipo === "planta_en_ventana") {
+      return {
+        consulta,
+        tipo: "exacta",
+        estrategia: "exacta",
+        mensaje: "El sistema de la planta no está disponible en este momento.",
+        candidatos: [],
+        estimaciones: {},
+        plantasEnVentana: {},
+        sistemaNoDisponible: { pdiv: inventario.pdiv, planta: inventario.planta },
       };
     }
     const sugerencia = await construirSugerencia(exacta.designacion, cantidad, 1);
@@ -58,13 +103,19 @@ export async function buscarDesignacion(
         tipo: "exacta",
         estrategia: "exacta",
         mensaje: `Designación ${exacta.designacion} encontrada.`,
-        candidatos: sugerencia ? [sugerencia] : [],
+        candidatos:
+          sugerencia && inventario.tipo === "disponible"
+            ? [{ ...sugerencia, existencias: inventario.existencias }]
+            : sugerencia
+              ? [sugerencia]
+              : [],
       },
       cantidad,
+      sesion,
     );
   }
 
-  return conEstimaciones(await validar(consulta, cantidad), cantidad);
+  return conEstimaciones(await validar(consulta, cantidad), cantidad, sesion);
 }
 
 function numeroDeSolicitud(): string {

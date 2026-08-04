@@ -3,6 +3,17 @@
 ## Estado
 completa
 
+## Corrección posterior — escena 4
+
+- El comportamiento del sistema externo de inventario quedó centralizado en
+  `lib/mock/inventario.ts`. Tanto `GET /api/mock/inventario` como el portal en
+  modo `hoy` consumen ahora la misma función; así no pueden divergir cuando una
+  planta entra en ventana.
+- Para `DEMO-VENTANA` con `P103` en mantenimiento, la consulta externa devuelve
+  `planta_en_ventana` y la ruta HTTP conserva su respuesta 503.
+- La corrección se verificó funcionalmente contra la sesión demo y después se
+  restauraron su modo, reloj, overrides y escenario originales.
+
 No cites el hash de tu propio commit: el archivo va dentro de ese commit y no
 puedes conocerlo al escribirlo. Para ubicar el trabajo basta con
 `git log --oneline -- lib/mock app/api/mock`.
