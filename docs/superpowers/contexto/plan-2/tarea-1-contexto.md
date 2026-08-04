@@ -1,7 +1,7 @@
 # Tarea 1 — Generador determinista y cargador masivo
 
 ## Estado
-completa · commits <se completa tras el commit>
+completa · commit c252f6f
 
 ## Qué entrega esta tarea
 Dos cimientos que consumirán las nueve tareas siguientes del Plan 2: un PRNG determinista (`mulberry32`) en `scripts/seed/aleatorio.ts` para generar todo el catálogo sintético de forma reproducible, y un cargador masivo por `COPY` en `scripts/seed/cargador.ts` para insertar filas en la base de Supabase cloud a velocidad de miles de filas por segundo.
