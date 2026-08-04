@@ -70,3 +70,15 @@ describe("muestreo", () => {
     }
   });
 });
+
+describe("errores en listas vacías", () => {
+  it("elegir lanza un error nombrando la función si la lista está vacía", () => {
+    const a = crearAleatorio(9);
+    expect(() => a.elegir([])).toThrow(/elegir/);
+  });
+
+  it("elegirPonderado lanza un error nombrando la función si las opciones están vacías", () => {
+    const a = crearAleatorio(9);
+    expect(() => a.elegirPonderado([])).toThrow(/elegirPonderado/);
+  });
+});

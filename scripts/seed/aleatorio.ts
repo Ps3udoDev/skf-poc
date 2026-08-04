@@ -32,8 +32,14 @@ export function crearAleatorio(semilla: number): Aleatorio {
   return {
     entero,
     decimal: (min, max, decimales) => Number((min + siguiente() * (max - min)).toFixed(decimales)),
-    elegir: <T>(lista: readonly T[]) => lista[entero(0, lista.length - 1)],
+    elegir: <T>(lista: readonly T[]) => {
+      if (lista.length === 0) throw new Error("elegir(): la lista recibida está vacía");
+      return lista[entero(0, lista.length - 1)];
+    },
     elegirPonderado: <T>(opciones: readonly (readonly [T, number])[]) => {
+      if (opciones.length === 0) {
+        throw new Error("elegirPonderado(): la lista de opciones recibida está vacía");
+      }
       const total = opciones.reduce((s, [, peso]) => s + peso, 0);
       let corte = siguiente() * total;
       for (const [valor, peso] of opciones) {
