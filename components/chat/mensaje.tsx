@@ -1,5 +1,6 @@
 import type { UIMessage } from "ai";
 import { TarjetaProducto } from "./tarjeta-producto";
+import { TextoMarkdown } from "./texto-markdown";
 
 export function Mensaje({ mensaje }: { mensaje: UIMessage }) {
   const referencias = mensaje.parts.flatMap((parte) =>
@@ -24,11 +25,15 @@ export function Mensaje({ mensaje }: { mensaje: UIMessage }) {
           parte.type === "text"
             ? `${mensaje.id}-texto-${parte.text}`
             : `${mensaje.id}-${identidad.type}-${identidad.toolCallId ?? "parte"}`;
+        // Lo que escribe el usuario se muestra literal; solo la respuesta del
+        // modelo viene en Markdown.
         if (parte.type === "text")
-          return (
+          return mensaje.role === "user" ? (
             <p key={clave} className="whitespace-pre-wrap leading-6">
               {parte.text}
             </p>
+          ) : (
+            <TextoMarkdown key={clave} texto={parte.text} />
           );
         const herramienta = parte as unknown as { type: string; state?: string; output?: unknown };
         if (
