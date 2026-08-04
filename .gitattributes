@@ -1,0 +1,14 @@
+# Biome formatea con LF. Sin esto, core.autocrlf=true de Windows convierte los
+# archivos a CRLF al hacer checkout y `pnpm lint` falla con "Formatter would have
+# printed the following content" sobre archivos que nadie tocó.
+* text=auto eol=lf
+
+# Binarios: que git no intente convertirlos.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.docx binary
+*.pptx binary
+*.pdf binary
