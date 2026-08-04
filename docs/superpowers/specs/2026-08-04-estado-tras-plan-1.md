@@ -94,3 +94,20 @@ Los ocho supuestos de interpretación del procedimiento están al final de `docs
 - **Vitest usa `pool: "threads"`** fijado en la configuración. El pool `forks` por defecto cae con `Fatal process out of memory` en esta máquina bajo presión de memoria.
 - **`pnpm test` es hermético**: no toca la red. Los tests que sí golpean Supabase viven en `*.integracion.test.ts` y se corren con `pnpm test:integracion`. Esa separación existe para que la suite no se ponga roja la mañana de una presentación si el proyecto está suspendido por inactividad.
 - **El disco se llenó una vez durante la ejecución** y abortó la escritura de un informe. Vigilar el espacio antes de sesiones largas.
+
+---
+
+## 8. Riesgo detectado en Realtime — atender en el Plan 3
+
+Durante la verificación final, **la primera suscripción a Realtime tras un periodo de inactividad falló** (sin evento en 15 s), y los dos reintentos inmediatos propagaron en ~500 ms. La base estaba intacta en los tres casos: publicación, `replica identity full` y política de lectura presentes.
+
+Es un arranque en frío del servicio, no un defecto del esquema. Pero el diseño §5 apoya en Realtime el interruptor del presentador, y **una primera pulsación que no reacciona frente al cliente arruina el momento central de la demostración** (escena 4 del guion).
+
+Lo que el Plan 3 debe implementar por esto:
+
+1. **Suscripción temprana.** Abrir el canal al cargar el portal, no al primer cambio de estado, para que el arranque en frío ocurra antes de que empiece la presentación.
+2. **Indicador de estado del canal** en el panel `/demo`, visible solo para el presentador: si el canal no está `SUBSCRIBED`, tiene que saberlo antes de tocar el interruptor.
+3. **Respaldo por sondeo.** Si la suscripción no confirma en unos segundos, consultar `sesion_demo` periódicamente. Es un POC: la corrección importa menos que no quedarse congelado en vivo.
+4. **Escribir solo tras confirmar `SUBSCRIBED`.** Ya está documentado en `scripts/verificar-conexion.ts`: un `sleep` fijo no basta, y si se escribe antes de que el canal esté activo **el evento se pierde sin error**.
+
+Añadir la comprobación del canal al ensayo previo a cada presentación, junto con `pnpm verificar`.
