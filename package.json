@@ -11,6 +11,8 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integracion": "vitest run --mode integracion",
+    "tipos": "supabase gen types typescript --linked --schema public > lib/supabase/tipos.ts",
     "verificar": "tsx scripts/verificar-conexion.ts",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset --linked",
@@ -29,6 +31,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.10.1",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"

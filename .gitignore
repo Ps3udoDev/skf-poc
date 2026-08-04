@@ -42,3 +42,6 @@ next-env.d.ts
 
 # el ejemplo sí se versiona
 !.env.example
+
+# espacio de trabajo de subagent-driven-development
+.superpowers/

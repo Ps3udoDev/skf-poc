@@ -17,7 +17,7 @@
 - **SLA:** 4 días hábiles es un **promedio** de todas las cotizaciones, no un plazo por solicitud. Nunca implementarlo como deadline individual.
 - **`PS` está sobrecargado** en el QMS: *Performance Standard* (costo) y *Almacén Primario*. En el código el almacén se nombra `almacen_ps`; el costo, si aparece, `performance_standard`.
 - **Formato de cotización:** `AAAAQ#####` (año + `Q` + consecutivo de 5 dígitos).
-- **Linter:** Biome. `pnpm lint` debe pasar antes de cada commit.
+- **Linter:** Biome. `pnpm lint` debe pasar antes de cada commit. Biome aplica `organizeImports`, así que **reordenará los imports** de los bloques de código de este plan. Ese reordenamiento es el comportamiento esperado, **no** una desviación del brief: los bloques de código fijan el contenido, Biome fija el formato. Lo mismo aplica a comillas, comas finales y saltos de línea.
 - **Migraciones:** nunca editar una migración ya aplicada. Siempre crear una nueva.
 - **Convención de nombres entre capas:** la base usa `snake_case` (`pack_quantity`, `es_nueva_creacion`) y el dominio TypeScript usa `camelCase` (`packQuantity`, `esNuevaCreacion`). La conversión se hace en un único punto — la función `aDesignacion()` que se crea en el Plan 3, capa `lib/fuentes`. **Ningún módulo de `lib/reglas-qms` debe conocer los nombres de columna.**
 
@@ -29,7 +29,7 @@
 |---|---|
 | `supabase/migrations/20260803000002_catalogo.sql` | `designaciones`, `homologos`, `plantas`, `inventario` |
 | `supabase/migrations/20260803000003_operacion.sql` | `clientes`, `operadores`, `cotizaciones`, `solicitudes` |
-| `supabase/migrations/20260803000004_metricas_y_contrato_b.sql` | `eventos_demo`, `intenciones_pedido`, `snapshot_inventario` |
+| `supabase/migrations/20260803000006_metricas_y_contrato_b.sql` | `eventos_demo`, `intenciones_pedido`, `snapshot_inventario` |
 | `lib/supabase/tipos.ts` | Tipos generados por el CLI. No se edita a mano |
 | `lib/supabase/admin.ts` | Cliente con service role, solo servidor |
 | `lib/supabase/servidor.ts` | Cliente para Server Components |
@@ -388,7 +388,7 @@ git commit -m "Migracion 003: clientes, operadores, historico de cotizaciones y 
 ## Tarea 4: Migración de métricas y Contrato B
 
 **Archivos:**
-- Crear: `supabase/migrations/20260803000004_metricas_y_contrato_b.sql`
+- Crear: `supabase/migrations/20260803000006_metricas_y_contrato_b.sql`
 
 **Interfaces:**
 - Produce: `eventos_demo`, `intenciones_pedido`, `snapshot_inventario`.
@@ -397,7 +397,7 @@ git commit -m "Migracion 003: clientes, operadores, historico de cotizaciones y 
 
 - [ ] **Paso 1: Escribir la migración**
 
-`supabase/migrations/20260803000004_metricas_y_contrato_b.sql`:
+`supabase/migrations/20260803000006_metricas_y_contrato_b.sql`:
 
 ```sql
 -- ============================================================================
@@ -521,7 +521,7 @@ Esperado: 12 tablas, todas con `relrowsecurity = true`.
 - [ ] **Paso 4: Commit**
 
 ```bash
-git add supabase/migrations/20260803000004_metricas_y_contrato_b.sql
+git add supabase/migrations/20260803000006_metricas_y_contrato_b.sql
 git commit -m "Migracion 004: eventos del demo y tablas reservadas del Contrato B"
 ```
 
@@ -1814,4 +1814,6 @@ Puntos donde el procedimiento admite más de una lectura y el POC eligió una. C
 3. **Doble numeración 4.5** en el documento original, resuelta como `4.5a` / `4.5b`.
 4. **Formato del número de cotización:** el documento muestra `XXXXQXXXXX` pero el texto dice "letra P". Se usó `Q`.
 5. **El SLA de 4 días hábiles es un promedio**, no un plazo por solicitud. El dashboard debe medir la media.
-
+6. **El borde de igualdad en el punto 4.1.** El procedimiento define solo los casos "menor" (declina) y "mayor" (pide LT al planner), y deja sin cubrir qué ocurre cuando la cantidad **iguala** exactamente al stock. El POC lo resuelve como declinar (`cantidad <= stock`), por el mismo razonamiento del caso "menor": si el stock cubre la cantidad exacta, el producto ya estaba disponible en WCL y la cotización era innecesaria. Es defendible pero es una interpretación, no una lectura literal — confirmar con SKF.
+7. **La jerarquia de almacenes no se aplica a la decision del 4.1.** El motor suma PS+SL+XX para comparar contra la cantidad pedida, pero el QMS define SL y XX como *"sujeto a aprobacion del dueno del material, es decir, Supplier"*. Una designacion con 0 en PS y 500 en XX hoy se declina como "ya estaba visible en WCL". Confirmar con SKF si la disponibilidad en almacen secundario o terciario cuenta como disponible para declinar, o si solo debe contar PS.
+8. **El punto 4.4 evalua el MOQ contra la cantidad cruda**, antes del redondeo al pack quantity del 4.5a. Con MOQ 50, pack 20 y 45 pedidas, se declina aunque redondeado serian 60. Es la lectura literal del 4.4, pero conviene confirmarla.
