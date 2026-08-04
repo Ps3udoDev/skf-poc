@@ -84,6 +84,62 @@ describe("Obsoletos (4.6 y 4.7)", () => {
     );
     expect(r.avisos.some((a) => a.tipo === "validar_con_ingeniero_ventas")).toBe(true);
   });
+
+  it("el mensaje nombra tanto la designacion original como el reemplazo", () => {
+    const r = evaluarSolicitud(
+      ctx({
+        designacion: d({ pcc: "O", vigente: false, reemplazadoPor: "6205-2RSL/C3" }),
+        reemplazo: d({ designacion: "6205-2RSL/C3" }),
+      }),
+    );
+    // El cliente necesita ver qué pidió (la original) y qué se le está
+    // cotizando en su lugar (el reemplazo).
+    expect(r.mensaje).toContain("6205-2RSH/C3");
+    expect(r.mensaje).toContain("6205-2RSL/C3");
+  });
+
+  it("encadena 4.6 -> 4.4: declina si el reemplazo incumple su propio MOQ", () => {
+    // La original tiene moq 1 (no incumpliría nada); el reemplazo exige 50.
+    const r = evaluarSolicitud(
+      ctx({
+        designacion: d({ pcc: "O", vigente: false, reemplazadoPor: "6205-2RSL/C3" }),
+        reemplazo: d({ designacion: "6205-2RSL/C3", moq: 50 }),
+        cantidad: 5,
+      }),
+    );
+    expect(r.ruta).toBe("declinar_moq");
+    expect(r.punto).toBe("4.4");
+    expect(r.declinada).toBe(true);
+    // El MOQ citado es el del reemplazo (50), no el de la original (1).
+    expect(r.mensaje).toContain("50");
+    expect(r.mensaje).toContain("6205-2RSL/C3");
+  });
+
+  it("el pack quantity efectivo se calcula sobre el reemplazo, no sobre la original", () => {
+    // La original tiene packQuantity 1 (no se ajustaría); el reemplazo se
+    // surte en cajas de 20.
+    const r = evaluarSolicitud(
+      ctx({
+        designacion: d({ pcc: "O", vigente: false, reemplazadoPor: "6205-2RSL/C3" }),
+        reemplazo: d({ designacion: "6205-2RSL/C3", packQuantity: 20 }),
+        cantidad: 25,
+      }),
+    );
+    expect(r.cantidadEfectiva).toBe(40);
+  });
+
+  it("los avisos de nueva creacion y precio se acumulan sobre el reemplazo", () => {
+    // Solo el reemplazo es de nueva creacion y FPC2; la original no lo es.
+    const r = evaluarSolicitud(
+      ctx({
+        designacion: d({ pcc: "O", vigente: false, reemplazadoPor: "6205-2RSL/C3" }),
+        reemplazo: d({ designacion: "6205-2RSL/C3", esNuevaCreacion: true, fpc: "2" }),
+      }),
+    );
+    expect(r.semanasExtraTE).toBe(4);
+    expect(r.avisos.map((a) => a.tipo)).toContain("nueva_creacion");
+    expect(r.avisos.map((a) => a.tipo)).toContain("precio_requiere_lpc");
+  });
 });
 
 describe("MOQ (4.4)", () => {
@@ -161,5 +217,15 @@ describe("Avisos acumulados (4.9 y 5.3)", () => {
     const r = evaluarSolicitud(ctx({ designacion: null, planta: null }));
     expect(r.avisos).toHaveLength(0);
     expect(r.semanasExtraTE).toBe(0);
+  });
+
+  it("si declina por 4.1 (ya disponible) SI conserva los avisos acumulados", () => {
+    // A diferencia de las declinaciones tempranas (4.8, 4.5b, 4.7, 4.4), la
+    // declinacion de 4.1 ocurre despues de calcular los avisos de 4.5a/4.9/5.3:
+    // esa informacion sigue siendo util para el cliente aunque no se cotice.
+    const r = evaluarSolicitud(ctx({ designacion: d({ packQuantity: 5 }), cantidad: 12 }));
+    expect(r.ruta).toBe("declinar_ya_disponible");
+    expect(r.declinada).toBe(true);
+    expect(r.avisos.some((a) => a.tipo === "pack_quantity_ajustado")).toBe(true);
   });
 });
