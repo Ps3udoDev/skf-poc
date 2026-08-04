@@ -14,7 +14,7 @@ export function ResultadoBusqueda({
   const [numero, setNumero] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enVuelo, iniciar] = useTransition();
-  const permiteSolicitud = resultado.tipo !== "exacta";
+  const permiteSolicitud = resultado.tipo !== "exacta" || Boolean(resultado.sistemaNoDisponible);
 
   function solicitar() {
     setError(null);
@@ -35,12 +35,20 @@ export function ResultadoBusqueda({
             Resultado de la consulta
           </p>
           <h2 className="mt-1 text-xl font-semibold text-texto">
-            {resultado.tipo === "truncada"
-              ? "La designación parece incompleta"
-              : resultado.tipo === "similar"
-                ? "No se encontró esa designación exacta"
-                : resultado.mensaje}
+            {resultado.sistemaNoDisponible
+              ? "Sistema de planta no disponible"
+              : resultado.tipo === "truncada"
+                ? "La designación parece incompleta"
+                : resultado.tipo === "similar"
+                  ? "No se encontró esa designación exacta"
+                  : resultado.mensaje}
           </h2>
+          {resultado.sistemaNoDisponible && (
+            <p className="mt-1 text-sm text-texto-tenue">
+              {resultado.sistemaNoDisponible.planta} ({resultado.sistemaNoDisponible.pdiv}) está en
+              ventana de mantenimiento. No podemos consultar disponibilidad en vivo.
+            </p>
+          )}
           {resultado.tipo === "truncada" && (
             <p className="mt-1 text-sm text-texto-tenue">
               Estas son las completaciones más probables del catálogo.
@@ -77,14 +85,27 @@ export function ResultadoBusqueda({
               sugerencia={sugerencia}
               cantidad={cantidad}
               estimacion={resultado.estimaciones[sugerencia.designacion.designacion] ?? null}
+              plantaEnVentana={
+                resultado.plantasEnVentana[sugerencia.designacion.designacion] ?? null
+              }
             />
           ))}
         </div>
       ) : (
         <div className="rounded-xl border border-borde bg-fondo p-8 text-center">
-          <p className="text-sm text-texto-tenue">
-            Revisa la captura o genera una solicitud para que Servicio al Cliente la investigue.
-          </p>
+          {resultado.sistemaNoDisponible ? (
+            <div>
+              <p className="font-medium text-texto">Disponibilidad temporalmente inaccesible</p>
+              <p className="mt-2 text-sm text-texto-tenue">
+                En la situación actual no hay una fuente alternativa confirmada. Genera una
+                solicitud para que Servicio al Cliente la procese cuando la planta se restablezca.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-texto-tenue">
+              Revisa la captura o genera una solicitud para que Servicio al Cliente la investigue.
+            </p>
+          )}
         </div>
       )}
     </section>

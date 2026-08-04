@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { ahoraSimulada, estadoDePlanta } from "@/lib/estado-fabricas";
-import { existenciasDe, obtenerDesignacion, plantaCompleta } from "@/lib/fuentes";
-import { latenciaArtificial } from "@/lib/mock/latencia";
-import { leerSesion } from "@/lib/sesion-demo/leer";
+import { consultarInventarioExterno } from "@/lib/mock/inventario";
 
 export const dynamic = "force-dynamic";
 
@@ -19,39 +16,28 @@ export async function GET(peticion: Request) {
     return NextResponse.json({ error: "Falta el parámetro designacion" }, { status: 400 });
   }
 
-  await latenciaArtificial();
-
-  const producto = await obtenerDesignacion(designacion);
-  if (!producto) {
+  const resultado = await consultarInventarioExterno(designacion);
+  if (resultado.tipo === "designacion_no_encontrada") {
     return NextResponse.json({ error: "Designación no encontrada" }, { status: 404 });
   }
-
-  const [planta, sesion] = await Promise.all([plantaCompleta(producto.pdiv), leerSesion()]);
-  if (!planta) {
+  if (resultado.tipo === "planta_no_encontrada") {
     return NextResponse.json({ error: "Planta no encontrada" }, { status: 404 });
   }
-
-  const estado = estadoDePlanta(
-    planta,
-    ahoraSimulada(sesion.relojOffsetMin),
-    sesion.plantasOverride[planta.pdiv],
-  );
-
-  if (estado === "ventana") {
+  if (resultado.tipo === "planta_en_ventana") {
     return NextResponse.json(
       {
         error: "Sistema de la planta no disponible",
-        pdiv: planta.pdiv,
-        estado,
+        pdiv: resultado.pdiv,
+        estado: "ventana",
       },
       { status: 503 },
     );
   }
 
   return NextResponse.json({
-    designacion: producto.designacion,
-    pdiv: planta.pdiv,
-    estado,
-    existencias: await existenciasDe(producto.designacion),
+    designacion: resultado.designacion,
+    pdiv: resultado.pdiv,
+    estado: resultado.estado,
+    existencias: resultado.existencias,
   });
 }

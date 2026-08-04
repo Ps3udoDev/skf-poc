@@ -12,10 +12,12 @@ export function TarjetaSugerencia({
   sugerencia,
   estimacion,
   cantidad,
+  plantaEnVentana,
 }: {
   sugerencia: Sugerencia;
   estimacion: Estimacion | null;
   cantidad: number;
+  plantaEnVentana: { pdiv: string; planta: string } | null;
 }) {
   const { designacion, evaluacion } = sugerencia;
   const stock = Object.fromEntries(sugerencia.existencias.map((e) => [e.almacen, e.cantidad]));
@@ -40,11 +42,22 @@ export function TarjetaSugerencia({
             <div key={almacen} className="px-3 py-2 text-center">
               <p className="text-xs font-medium text-texto-tenue">Almacén {almacen}</p>
               <p className="mt-0.5 designacion text-base font-semibold text-texto">
-                {stock[almacen] ?? 0}
+                {plantaEnVentana ? "—" : (stock[almacen] ?? 0)}
               </p>
             </div>
           ))}
         </div>
+
+        {plantaEnVentana && (
+          <div className="mt-3 rounded-lg border border-desconexion bg-desconexion-suave p-3 text-sm text-desconexion">
+            <p className="font-medium">Inventario en vivo no disponible</p>
+            <p className="mt-1">
+              {plantaEnVentana.planta} ({plantaEnVentana.pdiv}) está desconectada. No mostramos
+              existencias sin confirmar; el precio, el contexto QMS y el TE histórico siguen
+              disponibles como orientación.
+            </p>
+          </div>
+        )}
 
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
           <div>

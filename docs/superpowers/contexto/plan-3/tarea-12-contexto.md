@@ -3,6 +3,17 @@
 ## Estado
 completa
 
+## Corrección posterior — escena 4
+
+- Al activar **Planta en ventana de mantenimiento**, el panel fuerza `P103` en
+  estado `ventana` y alinea el reloj simulado al minuto 5 de su ventana
+  programada. Esto garantiza que el portal muestre una cuenta regresiva real en
+  vez de “restablecimiento pendiente de confirmación”.
+- La alineación usa el desplazamiento diario más corto y queda encapsulada en
+  `offsetParaAlinearVentana`, dentro de `lib/sesion-demo/escenarios.ts`.
+- Se comprobó que pulsar `+30 min` reduce la cuenta regresiva exactamente en 30
+  minutos. El script temporal de comprobación fue eliminado al terminar.
+
 Para ubicar el trabajo usa `git log --oneline -- app/demo components/demo`.
 
 ## Qué entrega esta tarea

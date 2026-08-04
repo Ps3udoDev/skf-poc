@@ -1,4 +1,5 @@
-import type { EstadoPlanta } from "@/lib/estado-fabricas";
+import { type EstadoPlanta, inicioDeVentana, minutosDelDia } from "@/lib/estado-fabricas";
+import type { PlantaCompleta } from "@/lib/fuentes";
 
 export interface Escenario {
   clave: string;
@@ -10,6 +11,8 @@ export interface Escenario {
   modo: "hoy" | "solucion" | null;
   /** Overrides de planta que el escenario deja activos. `null` los limpia. */
   overrides: Record<string, EstadoPlanta> | null;
+  /** Alinea el reloj dentro de la ventana programada de esta planta. */
+  alinearVentanaPdiv?: string;
   nota: string;
 }
 
@@ -83,6 +86,7 @@ export const ESCENARIOS: readonly Escenario[] = [
     modo: "hoy",
     // P103 es la planta belga, la de ventana de inicio variable.
     overrides: { P103: "ventana" },
+    alinearVentanaPdiv: "P103",
     nota: "Existe y tiene stock, pero su planta está desconectada. Se presenta primero en modo hoy y luego en modo solución.",
   },
   {
@@ -109,4 +113,13 @@ export const ESCENARIOS: readonly Escenario[] = [
 
 export function escenarioPorClave(clave: string): Escenario | undefined {
   return ESCENARIOS.find((e) => e.clave === clave);
+}
+
+/** Desplaza el reloj al minuto 5 de la ventana, por la ruta más corta del día. */
+export function offsetParaAlinearVentana(planta: PlantaCompleta, base = new Date()): number {
+  const objetivo = inicioDeVentana(planta, base) + 5;
+  let offset = objetivo - minutosDelDia(base);
+  if (offset > 720) offset -= 1440;
+  if (offset < -720) offset += 1440;
+  return offset;
 }

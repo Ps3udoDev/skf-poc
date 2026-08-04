@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import type { EstadoPlanta } from "@/lib/estado-fabricas";
+import { plantaCompleta } from "@/lib/fuentes";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/tipos";
-import { escenarioPorClave } from "./escenarios";
+import { escenarioPorClave, offsetParaAlinearVentana } from "./escenarios";
 import { leerSesion } from "./leer";
 
 // El brief tipaba esto como Record<string, unknown>, pero el .update() del
@@ -58,10 +59,18 @@ export async function activarEscenario(clave: string): Promise<void> {
   const escenario = escenarioPorClave(clave);
   if (!escenario) throw new Error(`Escenario desconocido: ${clave}`);
   const sesion = await leerSesion();
+  let relojOffsetMin = sesion.relojOffsetMin;
+  if (escenario.alinearVentanaPdiv) {
+    const planta = await plantaCompleta(escenario.alinearVentanaPdiv);
+    if (planta) {
+      relojOffsetMin = offsetParaAlinearVentana(planta);
+    }
+  }
   await actualizar({
     escenario_activo: clave,
     modo: escenario.modo ?? sesion.modo,
     plantas_override: escenario.overrides ?? sesion.plantasOverride,
+    reloj_offset_min: relojOffsetMin,
   });
 }
 

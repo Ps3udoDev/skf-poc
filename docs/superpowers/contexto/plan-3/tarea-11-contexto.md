@@ -3,6 +3,19 @@
 ## Estado
 completa
 
+## Corrección posterior — escena 4
+
+- En modo `hoy`, una consulta exacta pasa por el sistema externo de inventario.
+  Si la planta está en ventana, el portal muestra **Sistema de planta no
+  disponible**, no renderiza inventario, precio ni TE y permite generar una
+  solicitud para seguimiento.
+- En modo `solucion`, la designación mantiene el contexto QMS, precio y TE
+  histórico estimado. Las existencias PS/SL/XX se sustituyen por guiones y una
+  advertencia ámbar aclara que la disponibilidad en vivo no está confirmada.
+- `ResultadoBusquedaPortal` expone `sistemaNoDisponible` para el fallo del modo
+  actual y `plantasEnVentana` para marcar candidatos orientativos en el modo
+  solución.
+
 Para ubicar el trabajo usa `git log --oneline -- app/(portal) app/(operador) components/portal components/operador`.
 
 ## Qué entrega esta tarea

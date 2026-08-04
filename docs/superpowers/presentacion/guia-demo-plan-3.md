@@ -185,15 +185,20 @@ Resultado esperado en `/portal`:
 
 - Modo Situación actual.
 - Franja ámbar para `P103` y cuenta regresiva.
-- El mock de inventario de `DEMO-VENTANA` responde como sistema no disponible.
+- Al buscar `DEMO-VENTANA`, cantidad `200`, aparece **Sistema de planta no
+  disponible** y no se muestran inventario, precio ni TE.
+- La única salida en este modo es **Solicitar cotización**.
 
 Después:
 
 1. Cambia a **Con la solución**.
 2. Busca `DEMO-VENTANA`, cantidad `200`.
-3. Explica que el TE mostrado es estimado y no una confirmación de planta.
-4. En `/demo`, pulsa `+30 min` y muestra que la cuenta regresiva se reduce.
-5. Pulsa **Cerrar la ventana en curso** para terminar la escena.
+3. Confirma que PS/SL/XX aparecen sin cantidades porque la disponibilidad en
+   vivo no puede verificarse durante la ventana.
+4. Explica que el precio, el contexto QMS y el TE histórico siguen disponibles,
+   y que el TE es estimado, no una confirmación de planta.
+5. En `/demo`, pulsa `+30 min` y muestra que la cuenta regresiva se reduce.
+6. Pulsa **Cerrar la ventana en curso** para terminar la escena.
 
 Mensaje sugerido:
 
