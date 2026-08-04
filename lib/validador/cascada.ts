@@ -1,4 +1,5 @@
 import { completacionesDe, obtenerDesignacion, obtenerVarias, similaresA } from "@/lib/fuentes";
+import { emitirEvento } from "@/lib/metricas/emitir";
 import { normalizar, variantesConfusion } from "./normalizar";
 import { elegirDelConjunto } from "./respaldo-llm";
 import { construirSugerencia, construirVarias } from "./sugerencia";
@@ -141,9 +142,12 @@ export async function validar(consulta: string, cantidad: number): Promise<Resul
     if (eleccion) {
       const sugerencia = await construirSugerencia(eleccion.codigo, cantidad, 0.5);
       if (sugerencia) {
-        // TODO(tarea 6): emitir el evento `llamada_modelo` en `eventos_demo`
-        // cuando exista `lib/metricas/emitir`; el brief de esta tarea lo
-        // importaba de ahí, pero ese módulo aún no existe en el repo.
+        await emitirEvento({
+          tipo: "llamada_modelo",
+          perfil: "cliente",
+          designacion: limpia,
+          detalle: { estrategia: "validador", elegido: eleccion.codigo },
+        });
         return {
           consulta,
           tipo: "similar",
