@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { crearAleatorio } from "./aleatorio";
-import { diametroInterior, FAMILIAS, generarDesignaciones } from "./nomenclatura";
+import {
+  diametroInterior,
+  espacioCombinatorio,
+  FAMILIAS,
+  generarDesignaciones,
+} from "./nomenclatura";
 
 describe("codificacion del diametro interior", () => {
   it("respeta los cuatro codigos especiales", () => {
@@ -27,11 +32,28 @@ describe("familias", () => {
   });
 });
 
+describe("espacio combinatorio", () => {
+  it("supera con margen los 30000 que pide el orquestador del plan (Tarea 10)", () => {
+    const total = espacioCombinatorio();
+    expect(
+      total,
+      `Solo hay ${total} designaciones posibles segun FAMILIAS; el plan pide 30000. ` +
+        "Amplia series, sufijos o el rango de codigo de diametro en FAMILIAS.",
+    ).toBeGreaterThanOrEqual(45000);
+  });
+});
+
 describe("generacion", () => {
   it("produce la cantidad pedida sin designaciones repetidas", () => {
     const d = generarDesignaciones(crearAleatorio(20260803), 5000);
     expect(d).toHaveLength(5000);
     expect(new Set(d.map((x) => x.designacion)).size).toBe(5000);
+  });
+
+  it("produce las 30000 designaciones que pide el orquestador del plan, sin repetidas", () => {
+    const d = generarDesignaciones(crearAleatorio(20260803), 30000);
+    expect(d).toHaveLength(30000);
+    expect(new Set(d.map((x) => x.designacion)).size).toBe(30000);
   });
 
   it("es determinista con la misma semilla", () => {

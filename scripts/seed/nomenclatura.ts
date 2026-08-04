@@ -25,6 +25,13 @@ export function diametroInterior(codigo: string): number {
   return especiales[codigo] ?? Number(codigo) * 5;
 }
 
+/**
+ * Cantidad de códigos de diámetro posibles: "00" a "99" (dos dígitos), lo que
+ * cubre desde 10 mm hasta 495 mm de diámetro interior — rango real de la
+ * nomenclatura pública de rodamientos, incluyendo rodamientos grandes.
+ */
+export const CANTIDAD_CODIGOS_DIAMETRO = 100;
+
 export const FAMILIAS: readonly Familia[] = [
   {
     nombre: "Rodamiento rígido de bolas",
@@ -130,6 +137,22 @@ export interface DesignacionBase {
 }
 
 /**
+ * Tamaño del espacio combinatorio teórico: cuántas designaciones únicas
+ * distintas puede producir, como máximo, el catálogo de `FAMILIAS` dado.
+ *
+ * Se calcula desde los datos de `FAMILIAS` (sin generar nada), para que un
+ * recorte futuro de series o sufijos se detecte de inmediato en los tests,
+ * en vez de fallar a mitad de una siembra real.
+ */
+export function espacioCombinatorio(familias: readonly Familia[] = FAMILIAS): number {
+  return familias.reduce(
+    (total, f) =>
+      total + f.prefijos.length * f.series.length * f.sufijos.length * CANTIDAD_CODIGOS_DIAMETRO,
+    0,
+  );
+}
+
+/**
  * Genera el catálogo combinatoriamente.
  *
  * La clave está en que los sufijos sigan patrones reales: de ahí nacen los
@@ -148,7 +171,7 @@ export function generarDesignaciones(a: Aleatorio, cantidad: number): Designacio
     const familia = a.elegirPonderado(pesos);
     const prefijo = a.elegir(familia.prefijos);
     const serie = a.elegir(familia.series);
-    const codigoDiametro = String(a.entero(0, 48)).padStart(2, "0");
+    const codigoDiametro = String(a.entero(0, CANTIDAD_CODIGOS_DIAMETRO - 1)).padStart(2, "0");
     const sufijo = a.elegir(familia.sufijos);
 
     const separador = prefijo && !serie ? " " : "";
