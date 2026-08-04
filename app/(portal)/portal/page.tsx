@@ -1,3 +1,4 @@
+import { PanelChat } from "@/components/chat/panel-chat";
 import { BarraSuperior } from "@/components/marco/barra-superior";
 import { BannerVentana } from "@/components/portal/banner-ventana";
 import { Buscador } from "@/components/portal/buscador";
@@ -29,6 +30,7 @@ export default async function PaginaPortal() {
           </div>
           <Buscador />
         </main>
+        <PanelChat perfil="cliente" />
       </div>
     </ProveedorSesion>
   );

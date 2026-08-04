@@ -1,3 +1,4 @@
+import { PanelChat } from "@/components/chat/panel-chat";
 import { BarraSuperior } from "@/components/marco/barra-superior";
 import { ListaSolicitudes } from "@/components/operador/lista-solicitudes";
 import { ProveedorSesion } from "@/components/sesion/proveedor-sesion";
@@ -46,6 +47,7 @@ export default async function PaginaOperador() {
           </div>
           <ListaSolicitudes solicitudes={solicitudes} />
         </main>
+        <PanelChat perfil="operador" />
       </div>
     </ProveedorSesion>
   );
