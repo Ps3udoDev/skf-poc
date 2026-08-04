@@ -61,9 +61,37 @@ El arreglo de la ronda 1 amplió el código de diámetro a 100 valores (`"00"`�
   - "Rodamiento de rodillos cilíndricos": se añadieron `"/C2"` y `"/C4"` (clases de holgura, mismo patrón que `/C3` ya existente). Sufijos: 5 → 7.
   - No se tocaron series ni prefijos de ninguna familia (solo sufijos reales y ya cubiertos por el patrón de clases de holgura/variantes de sello que el catálogo ya usaba).
 - **Espacio combinatorio resultante: 49.718** (antes 53.500 con la constante global; sigue por encima del piso de 45.000 exigido, con margen de ~1.66× sobre los 30.000 pedidos por la Tarea 10).
-- **Test nuevo que fija la regla:** `"ninguna designacion supera el diametro maximo real de su familia"`, dentro de `describe("generacion")`. Genera 30.000 designaciones, calcula el diámetro máximo permitido por familia a partir de `codigoDiametroMax` (vía `diametroInterior`), y compara cada designación generada contra el máximo de su propia familia — con un mensaje de fallo que nombra la familia, la designación exacta y los mm de más. Esto es lo que impide que alguien reintroduzca una constante global sin darse cuenta.
+- **Test nuevo que fija la regla (versión original de esta ronda, corregida en la Ronda de arreglo 3 más abajo):** `"ninguna designacion supera el diametro maximo real de su familia"`, dentro de `describe("generacion")`.
 - **Verificación sobre 30.000 designaciones (semilla `20260803`):** el diámetro máximo observado en cada familia acotada coincidió exactamente con su tope — 140 mm, 200 mm y 220 mm respectivamente — confirmando que el nuevo test cubre el caso real.
 - **Efecto sobre los tests existentes:** ninguno necesitó ajuste de umbral. Con la misma semilla y 5.000 designaciones, los pares-prefijo subieron de 461 a **580** (más aún por encima del mínimo de 50) y la proporción de `power_transmission` bajó de 9.7% a **8.7%** (sigue dentro de 8%–25%, aunque con menos margen que antes — no se tocó el peso porque ya pasa; si una ronda futura la acerca más al 8%, ahí sí habría que subir el peso de esa familia, no el umbral).
+
+### Ronda de arreglo 3 — el test de diámetro máximo era tautológico
+
+El test añadido en la ronda 2 construía su mapa de máximos leyendo `f.codigoDiametroMax` directamente de `FAMILIAS` — el **mismo campo** que `generarDesignaciones` usa para acotar el sorteo (`a.entero(0, familia.codigoDiametroMax)`). Por construcción, ninguna designación puede superar un límite que ella misma usó para generarse: el test comparaba el generador consigo mismo y pasaba siempre, sin importar qué tan alto se pusiera el tope. El revisor lo demostró subiendo `codigoDiametroMax` de "Rodamiento de bolas a rótula" de 28 a 40 (reintroduciendo la regresión de la ronda 2 para esa familia) y viendo que los 13 tests, incluido este, seguían pasando.
+
+**Arreglo aplicado — tabla de máximos escrita a mano dentro del test, no derivada de `FAMILIAS`:**
+
+```ts
+const maximoRealMm: Record<string, number> = {
+  "Rodamiento de bolas a rótula": 140,
+  "Rodamiento de agujas": 220,
+  "Unidad de rodamiento": 200,
+  "Sello radial": 150,
+  "Transmisión de potencia": 100,
+  // Rígidos de bolas, rodillos cónicos, rodillos a rótula y rodillos cilíndricos
+  // quedan fuera a propósito: alcanzan diámetros grandes (hasta 495 mm) reales.
+};
+```
+
+**Por qué la tabla está duplicada a mano y no se deriva de `FAMILIAS.codigoDiametroMax` (esto no es redundancia accidental, es la propiedad que hace el test útil):** un test que lee el límite de la misma fuente que el código de producción usa para generar los datos nunca puede detectar que ese límite esté mal — solo puede detectar que el generador no respeta su propio límite (un bug distinto, y mucho menos probable). La única forma de que el test proteja contra "alguien sube un tope por encima de lo real" es que el test tenga su propia fuente de verdad, independiente del dato que vigila. Si en el futuro alguien "simplifica" esto derivando la tabla de `FAMILIAS` otra vez, el test vuelve a ser tautológico sin que nadie lo note hasta la próxima ronda de revisión — de ahí esta nota.
+
+**Verificación con mutación (antes de dar el arreglo por bueno):** se subió temporalmente `codigoDiametroMax` de "Rodamiento de bolas a rótula" de 28 a 40 en `nomenclatura.ts`, se corrió `pnpm test nomenclatura`, y el test falló con:
+
+```
+AssertionError: Rodamiento de bolas a rótula: la designacion "2238 ETN9" tiene diametro interior 190 mm, supera el maximo real de 140 mm de esa familia: expected 190 to be less than or equal to 140
+```
+
+Se restauró `codigoDiametroMax` a `28` de inmediato (`git diff scripts/seed/nomenclatura.ts` quedó vacío tras restaurar, confirmando que no quedó ningún resto de la mutación) y se volvió a correr la suite completa, verde.
 
 ## Contrato que exponen estos archivos
 

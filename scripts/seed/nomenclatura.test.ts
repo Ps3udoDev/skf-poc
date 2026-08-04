@@ -57,20 +57,34 @@ describe("generacion", () => {
   });
 
   it("ninguna designacion supera el diametro maximo real de su familia", () => {
-    const maximoMmPorFamilia = new Map(
-      FAMILIAS.map((f) => [
-        f.nombre,
-        diametroInterior(String(f.codigoDiametroMax).padStart(2, "0")),
-      ]),
-    );
+    // Tabla escrita a mano, deliberadamente NO derivada de FAMILIAS.codigoDiametroMax:
+    // si se calculara desde ese mismo campo, el test compararia el generador
+    // consigo mismo y pasaria siempre, sin importar que tan alto se ponga el tope
+    // (ver Ronda de arreglo 3 en el contexto de esta tarea). Estos son los
+    // maximos reales de catalogo publico / criterio de plausibilidad para las
+    // familias que SI estan acotadas en FAMILIAS.
+    const maximoRealMm: Record<string, number> = {
+      "Rodamiento de bolas a rótula": 140,
+      "Rodamiento de agujas": 220,
+      "Unidad de rodamiento": 200,
+      "Sello radial": 150,
+      "Transmisión de potencia": 100,
+      // Rodamiento rígido de bolas, de rodillos cónicos, de rodillos a rótula y
+      // de rodillos cilíndricos quedan fuera a propósito: sí alcanzan diámetros
+      // grandes (hasta 495 mm) en catálogo público real, así que no tienen un
+      // tope propio que verificar aquí.
+    };
+
     const d = generarDesignaciones(crearAleatorio(20260803), 30000);
     for (const x of d) {
+      const maximo = maximoRealMm[x.familia];
+      if (maximo === undefined) continue;
       const mm = Number(x.descripcion.match(/diámetro interior (\d+) mm/)?.[1]);
-      const maximo = maximoMmPorFamilia.get(x.familia);
       expect(
         mm,
-        `${x.familia}: "${x.designacion}" tiene diametro ${mm} mm, supera el maximo real ${maximo} mm de esa familia`,
-      ).toBeLessThanOrEqual(maximo as number);
+        `${x.familia}: la designacion "${x.designacion}" tiene diametro interior ${mm} mm, ` +
+          `supera el maximo real de ${maximo} mm de esa familia`,
+      ).toBeLessThanOrEqual(maximo);
     }
   });
 
