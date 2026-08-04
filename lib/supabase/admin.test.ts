@@ -11,7 +11,7 @@ describe("clienteAdmin", () => {
     expect(["hoy", "solucion"]).toContain(data?.modo);
   });
 
-  it("ve las 12 tablas del esquema", async () => {
+  it("atraviesa RLS y lee designaciones con tipos correctos", async () => {
     const { error } = await clienteAdmin().from("designaciones").select("designacion").limit(1);
     expect(error).toBeNull();
   });

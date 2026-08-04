@@ -10,5 +10,11 @@ export default defineConfig({
     alias: {
       "@": fileURLToPath(new URL(".", import.meta.url)),
     },
+    conditions: ["react-server"],
+  },
+  ssr: {
+    resolve: {
+      conditions: ["react-server"],
+    },
   },
 });
