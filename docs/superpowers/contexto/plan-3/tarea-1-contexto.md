@@ -181,16 +181,23 @@ en español; son solo para que las primitivas de shadcn se pinten solas.
   pide el brief (button, card, input, badge, table, alert, dialog,
   separator, skeleton, switch, tabs) — nada de `select`, `dropdown-menu`,
   `sheet`, etc. hasta que una tarea futura los necesite.
-- El puente de compatibilidad de `globals.css` cubre únicamente los nombres
-  de variable que las 11 primitivas instaladas usan hoy (confirmado con
-  `grep` sobre esos 11 archivos: `background`, `foreground`, `card`,
-  `card-foreground`, `popover`, `popover-foreground`, `primary`,
-  `primary-foreground`, `secondary`, `secondary-foreground`, `muted`,
-  `muted-foreground`, `destructive`, `border`, `input`, `ring`, y el radio).
-  Si una tarea futura agrega una primitiva nueva vía `shadcn add` que use
-  otro nombre de la convención (`accent`, `chart-*`, `sidebar-*`,
-  `font-heading`...), ese nombre no está definido todavía y habría que
-  añadirlo al puente siguiendo el mismo patrón.
+- El puente de compatibilidad de `globals.css` cubre los nombres de
+  variable de color y de radio que las 11 primitivas instaladas usan hoy
+  (`background`, `foreground`, `card`, `card-foreground`, `popover`,
+  `popover-foreground`, `primary`, `primary-foreground`, `secondary`,
+  `secondary-foreground`, `muted`, `muted-foreground`, `destructive`,
+  `border`, `input`, `ring`, y el radio) — **pero ese `grep` inicial no fue
+  exhaustivo.** `font-heading` sí se usa hoy (`components/ui/card.tsx:19` y
+  `components/ui/dialog.tsx:35`, clase `font-heading` en `CardTitle` y
+  `DialogTitle`) y no está definido ni en `:root` ni en el puente. Es
+  inocuo — sin esa variable la clase `font-heading` no genera ninguna
+  regla CSS y el elemento simplemente hereda `font-sans` del `body` — pero
+  queda registrado aquí como hallazgo menor diferido para la revisión final
+  de rama, no como algo cubierto. Si una tarea futura agrega otra
+  primitiva vía `shadcn add` que use un nombre de la convención que
+  tampoco esté cubierto (`accent`, `chart-*`, `sidebar-*`...), aplica la
+  misma advertencia: hay que revisar caso por caso, no asumir que el
+  puente es exhaustivo.
 - La verificación visual del Paso 7 se hizo sin la extensión de Chrome (no
   estaba disponible en este entorno): se confirmó sirviendo `pnpm dev` y
   usando `curl` contra el HTML renderizado y el CSS compilado — se
