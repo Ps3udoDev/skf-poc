@@ -30,7 +30,12 @@ Estructura mínima, en español:
 # Tarea N — <título>
 
 ## Estado
-<completa | en curso | bloqueada> · commits <hash>..<hash>
+<completa | en curso | bloqueada>
+
+No cites el hash de tu propio commit: el archivo va dentro de ese commit y no
+puedes conocerlo al escribirlo. Enmendar el commit para corregirlo solo genera
+un hash nuevo y el problema se repite. Para ubicar el trabajo basta con
+`git log --oneline -- <ruta de los archivos de la tarea>`.
 
 ## Qué entrega esta tarea
 <dos o tres frases>
