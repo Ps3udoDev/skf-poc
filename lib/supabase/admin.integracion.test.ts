@@ -1,3 +1,11 @@
+/**
+ * Test de INTEGRACIÓN: golpea el proyecto real de Supabase por la red.
+ *
+ * Está fuera de `pnpm test` a propósito. Si el proyecto se suspende por
+ * inactividad —o simplemente no hay red— la suite se pondría en rojo por una
+ * causa ajena al código, y eso no puede pasar el día de la presentación.
+ * `pnpm test` queda hermético; esto se corre aparte con `pnpm test:integracion`.
+ */
 import { config } from "dotenv";
 import { beforeAll, describe, expect, it } from "vitest";
 import { clienteAdmin } from "./admin";

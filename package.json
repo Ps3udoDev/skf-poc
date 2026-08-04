@@ -11,6 +11,7 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integracion": "vitest run --mode integracion",
     "tipos": "supabase gen types typescript --linked --schema public > lib/supabase/tipos.ts",
     "verificar": "tsx scripts/verificar-conexion.ts",
     "db:push": "supabase db push",
