@@ -3,8 +3,12 @@ import type { Aviso, Designacion } from "./tipos";
 /**
  * Punto 4.4 — "Si la designación tiene MOQ mayor a lo que el cliente pide se
  * le indica el MOQ al cliente y se declina."
+ *
+ * Recibe `Pick<Designacion, "moq">` y no la designación entera para que la
+ * reconciliación de la cola (`lib/operacion/reconciliacion.ts`) pueda reusar
+ * esta misma regla con el MOQ suelto, en vez de reimplementarla.
  */
-export function incumpleMoq(d: Designacion, cantidad: number): boolean {
+export function incumpleMoq(d: Pick<Designacion, "moq">, cantidad: number): boolean {
   return cantidad < d.moq;
 }
 
@@ -12,7 +16,7 @@ export function incumpleMoq(d: Designacion, cantidad: number): boolean {
  * Punto 4.5a — el sistema redondea al pack quantity asignado. Siempre hacia
  * arriba: no se puede despachar una fracción de caja.
  */
-export function redondearAPack(d: Designacion, cantidad: number): number {
+export function redondearAPack(d: Pick<Designacion, "packQuantity">, cantidad: number): number {
   if (d.packQuantity <= 1) return cantidad;
   return Math.ceil(cantidad / d.packQuantity) * d.packQuantity;
 }
@@ -21,7 +25,10 @@ export function redondearAPack(d: Designacion, cantidad: number): number {
  * Punto 4.5a — "se le indica al cliente el motivo del cambio en la cantidad".
  * Sin cambio no hay aviso.
  */
-export function avisoPackQuantity(d: Designacion, cantidad: number): Aviso | null {
+export function avisoPackQuantity(
+  d: Pick<Designacion, "packQuantity">,
+  cantidad: number,
+): Aviso | null {
   const efectiva = redondearAPack(d, cantidad);
   if (efectiva === cantidad) return null;
   return {
