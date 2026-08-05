@@ -4,9 +4,16 @@ import { revalidatePath } from "next/cache";
 import { ahoraSimulada, estadoDePlanta } from "@/lib/estado-fabricas";
 import type { Estimacion } from "@/lib/estimador/calculo";
 import { estimarTE } from "@/lib/estimador/estimador";
-import { construirContexto, obtenerDesignacion, plantaCompleta } from "@/lib/fuentes";
+import {
+  cargaPorCsr,
+  construirContexto,
+  idDeOperador,
+  obtenerDesignacion,
+  plantaCompleta,
+} from "@/lib/fuentes";
 import { emitirEvento } from "@/lib/metricas/emitir";
 import { consultarInventarioExterno } from "@/lib/mock/inventario";
+import { elegirCsr } from "@/lib/operacion/asignacion";
 import { evaluarSolicitud } from "@/lib/reglas-qms";
 import { leerSesion } from "@/lib/sesion-demo/leer";
 import type { SesionDemo } from "@/lib/sesion-demo/tipos";
@@ -125,8 +132,17 @@ function numeroDeSolicitud(): string {
 }
 
 export async function generarSolicitud(consulta: string, cantidad: number): Promise<string> {
-  const contexto = await construirContexto(consulta.trim(), cantidad);
+  const [contexto, sesion] = await Promise.all([
+    construirContexto(consulta.trim(), cantidad),
+    leerSesion(),
+  ]);
   const evaluacion = evaluarSolicitud(contexto);
+
+  // Reparto automático. `null` es un resultado válido: sin operadores activos
+  // la solicitud se crea igual y la bandeja la muestra como «Sin asignar».
+  const csr = elegirCsr(await cargaPorCsr(sesion.iniciadaEn));
+  const csrId = csr === null ? null : await idDeOperador(csr);
+
   let numero = "";
   let ultimoError = "";
 
@@ -138,6 +154,7 @@ export async function generarSolicitud(consulta: string, cantidad: number): Prom
       cantidad,
       clasificacion_qms: evaluacion.ruta,
       punto_qms: evaluacion.punto,
+      csr_asignado: csrId,
     });
     if (!error) {
       ultimoError = "";
@@ -153,7 +170,7 @@ export async function generarSolicitud(consulta: string, cantidad: number): Prom
     perfil: "cliente",
     designacion: consulta,
     pdiv: contexto.designacion?.pdiv ?? null,
-    detalle: { numero, ruta: evaluacion.ruta, punto: evaluacion.punto },
+    detalle: { numero, ruta: evaluacion.ruta, punto: evaluacion.punto, csr },
   });
   revalidatePath("/operador");
   return numero;
