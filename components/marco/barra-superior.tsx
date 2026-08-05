@@ -3,7 +3,7 @@ import { IndicadorModo } from "@/components/sesion/indicador-modo";
 import { IndicadorPlantas } from "@/components/sesion/indicador-plantas";
 import { DistintivoDemo } from "./distintivo-demo";
 
-export function BarraSuperior({ perfil }: { perfil: "cliente" | "operador" }) {
+export function BarraSuperior({ perfil }: { perfil: "cliente" | "operador" | "impacto" }) {
   return (
     <header className="flex items-center justify-between gap-6 border-b border-borde bg-fondo px-6 py-3">
       <div className="flex items-center gap-6">
@@ -22,6 +22,12 @@ export function BarraSuperior({ perfil }: { perfil: "cliente" | "operador" }) {
             className={`rounded px-3 py-1 text-sm ${perfil === "operador" ? "bg-fondo font-medium text-texto shadow-sm" : "text-texto-tenue"}`}
           >
             Servicio al Cliente
+          </Link>
+          <Link
+            href="/impacto"
+            className={`rounded px-3 py-1 text-sm ${perfil === "impacto" ? "bg-fondo font-medium text-texto shadow-sm" : "text-texto-tenue"}`}
+          >
+            Impacto
           </Link>
         </nav>
       </div>

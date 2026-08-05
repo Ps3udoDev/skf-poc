@@ -9,27 +9,16 @@ import {
   obtenerCotizacion,
   obtenerDesignacion,
   plantaCompleta,
+  solicitudesFiltradas,
 } from "@/lib/fuentes";
+import { DIAS_SLA, diasHabiles, RUTAS_QMS } from "@/lib/reglas-qms";
 import { leerSesion } from "@/lib/sesion-demo/leer";
 import { validar } from "@/lib/validador/cascada";
 import { buscarFragmento } from "./procedimiento";
 
 export type PerfilChat = "cliente" | "operador";
 
-function diasHabiles(desde: string, hasta = new Date()): number {
-  const cursor = new Date(desde);
-  cursor.setHours(0, 0, 0, 0);
-  const fin = new Date(hasta);
-  fin.setHours(0, 0, 0, 0);
-  let dias = 0;
-  while (cursor < fin) {
-    cursor.setDate(cursor.getDate() + 1);
-    if (cursor.getDay() !== 0 && cursor.getDay() !== 6) dias++;
-  }
-  return dias;
-}
-
-/** Cinco herramientas cerradas sobre las mismas fuentes que usa el portal. */
+/** Cinco herramientas comunes sobre las mismas fuentes que usa el portal, más una sexta exclusiva del operador. */
 export function HERRAMIENTAS(perfil: PerfilChat) {
   return {
     buscarDesignacion: tool({
@@ -107,8 +96,8 @@ export function HERRAMIENTAS(perfil: PerfilChat) {
           numero: cotizacion.numero,
           estado: cotizacion.fechaRespuesta ? "respondida" : "en_proceso",
           diasHabilesTranscurridos: transcurridos,
-          slaDiasHabiles: 4,
-          dentroDelSla: transcurridos <= 4,
+          slaDiasHabiles: DIAS_SLA,
+          dentroDelSla: transcurridos <= DIAS_SLA,
         };
         return perfil === "operador"
           ? {
@@ -127,6 +116,46 @@ export function HERRAMIENTAS(perfil: PerfilChat) {
       inputSchema: z.object({ consulta: z.string().min(1) }),
       execute: async ({ consulta }) => buscarFragmento(consulta),
     }),
+    // Solo el operador. El cliente no puede ver la bandeja de Servicio al
+    // Cliente, y una herramienta que existe es una herramienta que el modelo
+    // acaba llamando.
+    ...(perfil === "operador"
+      ? {
+          listarSolicitudes: tool({
+            description:
+              "Lista las solicitudes de la sesión con su clasificación QMS ya resuelta y el punto que la justifica. Úsala para responder qué solicitudes pueden declinarse o quién las tiene asignadas. No modifica nada.",
+            inputSchema: z.object({
+              estado: z.enum(["abierta", "atendida"]).optional(),
+              clasificacion: z.enum(RUTAS_QMS).optional(),
+              csr: z.string().optional(),
+            }),
+            execute: async ({ estado, clasificacion, csr }) => {
+              const sesion = await leerSesion();
+              const solicitudes = await solicitudesFiltradas({
+                desde: sesion.iniciadaEn,
+                estado,
+                clasificacion,
+                csr,
+              });
+              return {
+                total: solicitudes.length,
+                // La clasificación viene de lo que evaluarSolicitud() guardó al
+                // crear la solicitud. Aquí no se reevalúa el procedimiento.
+                solicitudes: solicitudes.map((s) => ({
+                  numero: s.numero,
+                  designacion: s.designacionTexto,
+                  cantidad: s.cantidad,
+                  clasificacionQms: s.clasificacionQms,
+                  puntoQms: s.puntoQms,
+                  csrAsignado: s.csrAsignado,
+                  estado: s.atendidaEn ? "atendida" : "abierta",
+                  resultado: s.resultado,
+                })),
+              };
+            },
+          }),
+        }
+      : {}),
   };
 }
 

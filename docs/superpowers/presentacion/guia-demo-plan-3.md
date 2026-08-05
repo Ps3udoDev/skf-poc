@@ -1,5 +1,10 @@
 # Guía de ensayo y presentación — POC Plan 3
 
+> **Nota (Plan 4B):** el recorrido vigente para presentar es el
+> [guion cronometrado](guion-cronometrado.md), que cubre las ocho escenas con
+> sus tiempos y acciones exactas. Esta guía queda como referencia de
+> preparación técnica, contingencias y lista de comprobación previa.
+
 Esta guía describe qué se puede probar hoy, cómo preparar el ambiente y el
 recorrido recomendado para presentar el POC sin improvisar.
 

@@ -2,7 +2,7 @@
 
 import type { Estimacion } from "@/lib/estimador/calculo";
 import type { Almacen } from "@/lib/reglas-qms";
-import type { Sugerencia } from "@/lib/validador/tipos";
+import type { Estrategia, Sugerencia } from "@/lib/validador/tipos";
 import { DetalleDesignacion } from "./detalle-designacion";
 import { EtiquetaQMS } from "./etiqueta-qms";
 
@@ -12,11 +12,13 @@ export function TarjetaSugerencia({
   sugerencia,
   estimacion,
   cantidad,
+  estrategia,
   plantaEnVentana,
 }: {
   sugerencia: Sugerencia;
   estimacion: Estimacion | null;
   cantidad: number;
+  estrategia: Estrategia;
   plantaEnVentana: { pdiv: string; planta: string } | null;
 }) {
   const { designacion, evaluacion } = sugerencia;
@@ -119,7 +121,13 @@ export function TarjetaSugerencia({
           <p className="mt-1 text-texto-tenue">{evaluacion.mensaje}</p>
         </div>
       </div>
-      <DetalleDesignacion sugerencia={sugerencia} estimacion={estimacion} />
+      <DetalleDesignacion
+        sugerencia={sugerencia}
+        estimacion={estimacion}
+        cantidad={cantidad}
+        estrategia={estrategia}
+        plantaEnVentana={plantaEnVentana}
+      />
     </article>
   );
 }

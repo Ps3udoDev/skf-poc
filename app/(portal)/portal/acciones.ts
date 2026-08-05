@@ -4,16 +4,28 @@ import { revalidatePath } from "next/cache";
 import { ahoraSimulada, estadoDePlanta } from "@/lib/estado-fabricas";
 import type { Estimacion } from "@/lib/estimador/calculo";
 import { estimarTE } from "@/lib/estimador/estimador";
-import { construirContexto, obtenerDesignacion, plantaCompleta } from "@/lib/fuentes";
+import {
+  cargaPorCsr,
+  construirContexto,
+  homologosDe,
+  type Intencion,
+  idDeOperador,
+  intencionesDesde,
+  obtenerDesignacion,
+  plantaCompleta,
+} from "@/lib/fuentes";
 import { emitirEvento } from "@/lib/metricas/emitir";
 import { consultarInventarioExterno } from "@/lib/mock/inventario";
+import { elegirCsr } from "@/lib/operacion/asignacion";
 import { evaluarSolicitud } from "@/lib/reglas-qms";
 import { leerSesion } from "@/lib/sesion-demo/leer";
 import type { SesionDemo } from "@/lib/sesion-demo/tipos";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { validar } from "@/lib/validador/cascada";
+import type { Confirmacion } from "@/lib/validador/confirmacion";
+import { construirConfirmacion } from "@/lib/validador/confirmacion";
 import { construirSugerencia } from "@/lib/validador/sugerencia";
-import type { ResultadoValidacion } from "@/lib/validador/tipos";
+import type { Estrategia, ResultadoValidacion, Sugerencia } from "@/lib/validador/tipos";
 
 export interface ResultadoBusquedaPortal extends ResultadoValidacion {
   estimaciones: Record<string, Estimacion | null>;
@@ -48,6 +60,8 @@ async function conEstimaciones(
   for (const { codigo, enVentana } of contextoCandidatos) {
     if (enVentana) plantasEnVentana[codigo] = enVentana;
   }
+  await emitirAvisos(resultado.candidatos, cantidad, sesion.modo);
+
   return {
     ...resultado,
     estimaciones: Object.fromEntries(
@@ -55,6 +69,42 @@ async function conEstimaciones(
     ),
     plantasEnVentana,
   };
+}
+
+/**
+ * Avisos que el cliente ve en la tarjeta de un candidato.
+ *
+ * Se emiten aquí, donde se producen, y no en el componente que los pinta: un
+ * aviso calculado que la pantalla nunca recibió no es un aviso anticipado, y
+ * uno que el servidor devolvió sí lo es. Se emite en los dos modos, con el
+ * modo en el detalle, para que el contraste 'hoy' / 'solución' quede auditable.
+ */
+async function emitirAvisos(
+  candidatos: readonly Sugerencia[],
+  cantidad: number,
+  modo: string,
+): Promise<void> {
+  for (const candidato of candidatos) {
+    const { designacion, evaluacion } = candidato;
+    if (evaluacion.ruta === "declinar_moq") {
+      await emitirEvento({
+        tipo: "aviso_moq",
+        perfil: "cliente",
+        designacion: designacion.designacion,
+        pdiv: designacion.pdiv,
+        detalle: { modo, cantidad, moq: designacion.moq },
+      });
+    }
+    if (evaluacion.avisos.some((aviso) => aviso.tipo === "pack_quantity_ajustado")) {
+      await emitirEvento({
+        tipo: "aviso_pack_quantity",
+        perfil: "cliente",
+        designacion: designacion.designacion,
+        pdiv: designacion.pdiv,
+        detalle: { modo, cantidad, cantidadEfectiva: evaluacion.cantidadEfectiva },
+      });
+    }
+  }
 }
 
 /** Único punto de bifurcación entre la experiencia actual y la solución. */
@@ -125,8 +175,17 @@ function numeroDeSolicitud(): string {
 }
 
 export async function generarSolicitud(consulta: string, cantidad: number): Promise<string> {
-  const contexto = await construirContexto(consulta.trim(), cantidad);
+  const [contexto, sesion] = await Promise.all([
+    construirContexto(consulta.trim(), cantidad),
+    leerSesion(),
+  ]);
   const evaluacion = evaluarSolicitud(contexto);
+
+  // Reparto automático. `null` es un resultado válido: sin operadores activos
+  // la solicitud se crea igual y la bandeja la muestra como «Sin asignar».
+  const csr = elegirCsr(await cargaPorCsr(sesion.iniciadaEn));
+  const csrId = csr === null ? null : await idDeOperador(csr);
+
   let numero = "";
   let ultimoError = "";
 
@@ -138,6 +197,7 @@ export async function generarSolicitud(consulta: string, cantidad: number): Prom
       cantidad,
       clasificacion_qms: evaluacion.ruta,
       punto_qms: evaluacion.punto,
+      csr_asignado: csrId,
     });
     if (!error) {
       ultimoError = "";
@@ -153,13 +213,128 @@ export async function generarSolicitud(consulta: string, cantidad: number): Prom
     perfil: "cliente",
     designacion: consulta,
     pdiv: contexto.designacion?.pdiv ?? null,
-    detalle: { numero, ruta: evaluacion.ruta, punto: evaluacion.punto },
+    detalle: { numero, ruta: evaluacion.ruta, punto: evaluacion.punto, csr },
   });
   revalidatePath("/operador");
   return numero;
 }
 
-export async function registrarSolicitudEvitada(codigo: string): Promise<void> {
+export async function registrarSolicitudEvitada(
+  codigo: string,
+  estrategia?: Estrategia,
+): Promise<void> {
+  // Solo cuenta como sugerencia aceptada si el candidato lo encontró el
+  // validador. Una coincidencia exacta la escribió el cliente: ahí el sistema
+  // no sugirió nada.
+  if (estrategia !== undefined && estrategia !== "exacta" && estrategia !== "ninguna") {
+    await emitirEvento({
+      tipo: "sugerencia_aceptada",
+      perfil: "cliente",
+      designacion: codigo,
+      detalle: { estrategia },
+    });
+  }
   await emitirEvento({ tipo: "solicitud_evitada", perfil: "cliente", designacion: codigo });
   revalidatePath("/operador");
+}
+
+/** Equivalencias registradas de una designación, ya convertidas en pasos. */
+export async function equivalenciasDe(codigo: string): Promise<Confirmacion[]> {
+  const homologos = await homologosDe(codigo);
+  return homologos.map(construirConfirmacion);
+}
+
+/**
+ * Cierre de la confirmación guiada.
+ *
+ * Se vuelve a resolver el homólogo en el servidor en vez de confiar en lo que
+ * manda el navegador: la equivalencia tiene que existir en la base, igual que
+ * el validador solo elige designaciones del catálogo.
+ */
+export async function confirmarHomologo(
+  origen: string,
+  equivalente: string,
+  cantidad: number,
+): Promise<{ designacion: string; requiereIngenieriaVentas: boolean }> {
+  const homologos = await homologosDe(origen);
+  const elegido = homologos.find((homologo) => homologo.equivalente === equivalente);
+  if (!elegido) throw new Error(`${equivalente} no es un homólogo registrado de ${origen}.`);
+
+  const designacion = await obtenerDesignacion(equivalente);
+  if (!designacion) throw new Error(`${equivalente} no existe en el catálogo.`);
+
+  const confirmacion = construirConfirmacion(elegido);
+  await emitirEvento({
+    tipo: "confirmacion_homologo",
+    perfil: "cliente",
+    designacion: origen,
+    pdiv: designacion.pdiv,
+    detalle: {
+      equivalente,
+      cantidad,
+      pasos: confirmacion.pasos.length,
+      requiereIngenieriaVentas: confirmacion.requiereIngenieriaVentas,
+    },
+  });
+  revalidatePath("/operador");
+
+  return {
+    designacion: equivalente,
+    requiereIngenieriaVentas: confirmacion.requiereIngenieriaVentas,
+  };
+}
+
+/**
+ * Registra la intención de pedido de un cliente mientras su planta está en
+ * ventana de mantenimiento.
+ *
+ * Solo procede si la planta está realmente en `ventana`. Fuera de ventana
+ * devuelve error: encolar con la planta viva sería resolver un problema que no
+ * existe, y en pantalla se leería como un rodeo innecesario.
+ */
+export async function encolarIntencion(
+  codigo: string,
+  cantidad: number,
+): Promise<{ id: number; pdiv: string }> {
+  const designacion = await obtenerDesignacion(codigo);
+  if (!designacion) throw new Error(`La designación ${codigo} no existe en el catálogo.`);
+
+  const [planta, sesion] = await Promise.all([plantaCompleta(designacion.pdiv), leerSesion()]);
+  if (!planta) throw new Error(`No se encontró la planta ${designacion.pdiv}.`);
+
+  const estado = estadoDePlanta(
+    planta,
+    ahoraSimulada(sesion.relojOffsetMin),
+    sesion.plantasOverride[planta.pdiv],
+  );
+  if (estado !== "ventana") {
+    throw new Error(
+      `${planta.nombre} no está en ventana de mantenimiento: la consulta se resuelve en vivo y no ` +
+        "hace falta encolar.",
+    );
+  }
+
+  const { data, error } = await clienteAdmin()
+    .from("intenciones_pedido")
+    .insert({ designacion: designacion.designacion, cantidad, pdiv: planta.pdiv })
+    .select("id")
+    .single();
+  if (error) throw new Error(`No se pudo encolar la intención: ${error.message}`);
+
+  await emitirEvento({
+    tipo: "intencion_encolada",
+    perfil: "cliente",
+    designacion: designacion.designacion,
+    pdiv: planta.pdiv,
+    detalle: { id: data.id, cantidad, planta: planta.nombre },
+  });
+  revalidatePath("/portal");
+
+  return { id: data.id, pdiv: planta.pdiv };
+}
+
+/** Cola de la sesión para la pantalla del cliente. */
+export async function listarIntenciones(): Promise<Intencion[]> {
+  const sesion = await leerSesion();
+  return intencionesDesde(sesion.iniciadaEn);
 }

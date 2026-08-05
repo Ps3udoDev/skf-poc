@@ -2,6 +2,7 @@ import { PanelChat } from "@/components/chat/panel-chat";
 import { BarraSuperior } from "@/components/marco/barra-superior";
 import { BannerVentana } from "@/components/portal/banner-ventana";
 import { Buscador } from "@/components/portal/buscador";
+import { ColaIntenciones } from "@/components/portal/cola-intenciones";
 import { ProveedorSesion } from "@/components/sesion/proveedor-sesion";
 import { todasLasPlantas } from "@/lib/fuentes";
 import { leerSesion } from "@/lib/sesion-demo/leer";
@@ -29,6 +30,7 @@ export default async function PaginaPortal() {
             </p>
           </div>
           <Buscador />
+          <ColaIntenciones />
         </main>
         <PanelChat perfil="cliente" />
       </div>

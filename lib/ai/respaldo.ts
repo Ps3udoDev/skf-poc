@@ -24,10 +24,10 @@ export function respuestaPregrabada(pregunta: string): string | null {
   }
   if (
     (texto.includes("solicitudes") || texto.includes("productos")) &&
-    texto.includes("planead") &&
-    texto.includes("stock")
+    (texto.includes("planead") || texto.includes("declinar")) &&
+    (texto.includes("stock") || texto.includes("disponib") || texto.includes("hoy"))
   ) {
-    return "Según el punto 4.1, las solicitudes de productos planeados (LCC=PLAN) con stock suficiente ya visible en WCL pueden declinarse e informarse al cliente. La lista concreta debe salir de la bandeja; el respaldo no inventa solicitudes.";
+    return "Según el punto 4.1, las solicitudes de productos planeados (LCC=PLAN) con stock suficiente ya visible en WCL pueden declinarse e informándoselo al cliente. Con conexión, esa lista sale de la bandeja de la sesión con su clasificación QMS ya resuelta; el respaldo sin conexión no inventa solicitudes.";
   }
   return null;
 }

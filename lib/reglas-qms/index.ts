@@ -8,6 +8,7 @@ export * from "./cantidades";
 export * from "./catalogo";
 export * from "./motivos";
 export * from "./planeacion";
+export * from "./sla";
 export * from "./tiempos";
 export * from "./tipos";
 

@@ -1,19 +1,50 @@
 import { PanelChat } from "@/components/chat/panel-chat";
 import { BarraSuperior } from "@/components/marco/barra-superior";
-import { ListaSolicitudes } from "@/components/operador/lista-solicitudes";
+import { Bandeja } from "@/components/operador/bandeja";
+import { FiltrosBandeja } from "@/components/operador/filtros-bandeja";
 import { ProveedorSesion } from "@/components/sesion/proveedor-sesion";
-import { solicitudesDesde, todasLasPlantas } from "@/lib/fuentes";
+import {
+  cargaPorCsr,
+  type EstadoSolicitud,
+  type FiltroBandeja,
+  solicitudesFiltradas,
+  todasLasPlantas,
+} from "@/lib/fuentes";
 import { indicadoresDeSesion } from "@/lib/metricas/indicadores";
+import { RUTAS_QMS, type RutaQMS } from "@/lib/reglas-qms";
 import { leerSesion } from "@/lib/sesion-demo/leer";
 
 export const dynamic = "force-dynamic";
 
-export default async function PaginaOperador() {
+type Parametros = Promise<Record<string, string | string[] | undefined>>;
+
+/** Un `searchParams` repetido llega como arreglo; la bandeja usa el primero. */
+function uno(valor: string | string[] | undefined): string | undefined {
+  return Array.isArray(valor) ? valor[0] : valor;
+}
+
+export default async function PaginaOperador({ searchParams }: { searchParams: Parametros }) {
+  const parametros = await searchParams;
   const sesion = await leerSesion();
-  const [plantas, indicadores, solicitudes] = await Promise.all([
+
+  const estado = uno(parametros.estado);
+  const clasificacion = uno(parametros.clasificacion);
+  const csr = uno(parametros.csr);
+
+  const filtro: FiltroBandeja = {
+    desde: sesion.iniciadaEn,
+    estado: estado === "abierta" || estado === "atendida" ? (estado as EstadoSolicitud) : undefined,
+    clasificacion: RUTAS_QMS.includes(clasificacion as RutaQMS)
+      ? (clasificacion as RutaQMS)
+      : undefined,
+    csr: csr === "sin-asignar" ? null : csr,
+  };
+
+  const [plantas, indicadores, solicitudes, cargas] = await Promise.all([
     todasLasPlantas(),
     indicadoresDeSesion(),
-    solicitudesDesde(sesion.iniciadaEn),
+    solicitudesFiltradas(filtro),
+    cargaPorCsr(sesion.iniciadaEn),
   ]);
   const metricas = [
     ["Solicitudes recibidas", indicadores.solicitudesGeneradas],
@@ -45,7 +76,10 @@ export default async function PaginaOperador() {
               </div>
             ))}
           </div>
-          <ListaSolicitudes solicitudes={solicitudes} />
+          <div className="mb-4">
+            <FiltrosBandeja cargas={cargas} />
+          </div>
+          <Bandeja solicitudes={solicitudes} cargas={cargas} />
         </main>
         <PanelChat perfil="operador" />
       </div>
