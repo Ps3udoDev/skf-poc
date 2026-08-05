@@ -1,7 +1,7 @@
 import { PanelChat } from "@/components/chat/panel-chat";
 import { BarraSuperior } from "@/components/marco/barra-superior";
+import { Bandeja } from "@/components/operador/bandeja";
 import { FiltrosBandeja } from "@/components/operador/filtros-bandeja";
-import { ListaSolicitudes } from "@/components/operador/lista-solicitudes";
 import { ProveedorSesion } from "@/components/sesion/proveedor-sesion";
 import {
   cargaPorCsr,
@@ -79,7 +79,7 @@ export default async function PaginaOperador({ searchParams }: { searchParams: P
           <div className="mb-4">
             <FiltrosBandeja cargas={cargas} />
           </div>
-          <ListaSolicitudes solicitudes={solicitudes} />
+          <Bandeja solicitudes={solicitudes} cargas={cargas} />
         </main>
         <PanelChat perfil="operador" />
       </div>

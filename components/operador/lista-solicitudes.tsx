@@ -1,3 +1,5 @@
+"use client";
+
 import type { SolicitudResumen } from "@/lib/fuentes";
 
 const ETIQUETAS: Record<string, string> = {
@@ -20,7 +22,15 @@ function antiguedad(creadaEn: string) {
   return `Hace ${Math.floor(minutos / 60)} h`;
 }
 
-export function ListaSolicitudes({ solicitudes }: { solicitudes: SolicitudResumen[] }) {
+export function ListaSolicitudes({
+  solicitudes,
+  seleccionada,
+  onSeleccionar,
+}: {
+  solicitudes: SolicitudResumen[];
+  seleccionada: string | null;
+  onSeleccionar: (numero: string) => void;
+}) {
   if (solicitudes.length === 0) {
     return (
       <div className="rounded-xl border border-borde bg-fondo px-6 py-12 text-center">
@@ -47,7 +57,15 @@ export function ListaSolicitudes({ solicitudes }: { solicitudes: SolicitudResume
         </thead>
         <tbody className="divide-y divide-borde">
           {solicitudes.map((solicitud) => (
-            <tr key={solicitud.numero} className="align-top">
+            <tr
+              key={solicitud.numero}
+              onClick={() => onSeleccionar(solicitud.numero)}
+              className={
+                solicitud.numero === seleccionada
+                  ? "cursor-pointer align-top bg-primario-suave"
+                  : "cursor-pointer align-top hover:bg-fondo-sutil"
+              }
+            >
               <td className="px-4 py-4 designacion font-medium text-texto">{solicitud.numero}</td>
               <td className="px-4 py-4 designacion text-texto">{solicitud.designacionTexto}</td>
               <td className="px-4 py-4 text-texto">{solicitud.cantidad}</td>
