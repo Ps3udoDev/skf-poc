@@ -10,24 +10,12 @@ import {
   obtenerDesignacion,
   plantaCompleta,
 } from "@/lib/fuentes";
+import { DIAS_SLA, diasHabiles } from "@/lib/reglas-qms";
 import { leerSesion } from "@/lib/sesion-demo/leer";
 import { validar } from "@/lib/validador/cascada";
 import { buscarFragmento } from "./procedimiento";
 
 export type PerfilChat = "cliente" | "operador";
-
-function diasHabiles(desde: string, hasta = new Date()): number {
-  const cursor = new Date(desde);
-  cursor.setHours(0, 0, 0, 0);
-  const fin = new Date(hasta);
-  fin.setHours(0, 0, 0, 0);
-  let dias = 0;
-  while (cursor < fin) {
-    cursor.setDate(cursor.getDate() + 1);
-    if (cursor.getDay() !== 0 && cursor.getDay() !== 6) dias++;
-  }
-  return dias;
-}
 
 /** Cinco herramientas cerradas sobre las mismas fuentes que usa el portal. */
 export function HERRAMIENTAS(perfil: PerfilChat) {
@@ -107,8 +95,8 @@ export function HERRAMIENTAS(perfil: PerfilChat) {
           numero: cotizacion.numero,
           estado: cotizacion.fechaRespuesta ? "respondida" : "en_proceso",
           diasHabilesTranscurridos: transcurridos,
-          slaDiasHabiles: 4,
-          dentroDelSla: transcurridos <= 4,
+          slaDiasHabiles: DIAS_SLA,
+          dentroDelSla: transcurridos <= DIAS_SLA,
         };
         return perfil === "operador"
           ? {
