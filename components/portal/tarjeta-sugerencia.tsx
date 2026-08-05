@@ -119,7 +119,12 @@ export function TarjetaSugerencia({
           <p className="mt-1 text-texto-tenue">{evaluacion.mensaje}</p>
         </div>
       </div>
-      <DetalleDesignacion sugerencia={sugerencia} estimacion={estimacion} cantidad={cantidad} />
+      <DetalleDesignacion
+        sugerencia={sugerencia}
+        estimacion={estimacion}
+        cantidad={cantidad}
+        plantaEnVentana={plantaEnVentana}
+      />
     </article>
   );
 }

@@ -8,7 +8,9 @@ import {
   cargaPorCsr,
   construirContexto,
   homologosDe,
+  type Intencion,
   idDeOperador,
+  intencionesDesde,
   obtenerDesignacion,
   plantaCompleta,
 } from "@/lib/fuentes";
@@ -228,4 +230,59 @@ export async function confirmarHomologo(
     designacion: equivalente,
     requiereIngenieriaVentas: confirmacion.requiereIngenieriaVentas,
   };
+}
+
+/**
+ * Registra la intención de pedido de un cliente mientras su planta está en
+ * ventana de mantenimiento.
+ *
+ * Solo procede si la planta está realmente en `ventana`. Fuera de ventana
+ * devuelve error: encolar con la planta viva sería resolver un problema que no
+ * existe, y en pantalla se leería como un rodeo innecesario.
+ */
+export async function encolarIntencion(
+  codigo: string,
+  cantidad: number,
+): Promise<{ id: number; pdiv: string }> {
+  const designacion = await obtenerDesignacion(codigo);
+  if (!designacion) throw new Error(`La designación ${codigo} no existe en el catálogo.`);
+
+  const [planta, sesion] = await Promise.all([plantaCompleta(designacion.pdiv), leerSesion()]);
+  if (!planta) throw new Error(`No se encontró la planta ${designacion.pdiv}.`);
+
+  const estado = estadoDePlanta(
+    planta,
+    ahoraSimulada(sesion.relojOffsetMin),
+    sesion.plantasOverride[planta.pdiv],
+  );
+  if (estado !== "ventana") {
+    throw new Error(
+      `${planta.nombre} no está en ventana de mantenimiento: la consulta se resuelve en vivo y no ` +
+        "hace falta encolar.",
+    );
+  }
+
+  const { data, error } = await clienteAdmin()
+    .from("intenciones_pedido")
+    .insert({ designacion: designacion.designacion, cantidad, pdiv: planta.pdiv })
+    .select("id")
+    .single();
+  if (error) throw new Error(`No se pudo encolar la intención: ${error.message}`);
+
+  await emitirEvento({
+    tipo: "intencion_encolada",
+    perfil: "cliente",
+    designacion: designacion.designacion,
+    pdiv: planta.pdiv,
+    detalle: { id: data.id, cantidad, planta: planta.nombre },
+  });
+  revalidatePath("/portal");
+
+  return { id: data.id, pdiv: planta.pdiv };
+}
+
+/** Cola de la sesión para la pantalla del cliente. */
+export async function listarIntenciones(): Promise<Intencion[]> {
+  const sesion = await leerSesion();
+  return intencionesDesde(sesion.iniciadaEn);
 }
