@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { construirContexto } from "@/lib/fuentes";
 import { latenciaArtificial } from "@/lib/mock/latencia";
+import { numeroDeSolicitud } from "@/lib/operacion/numeracion";
 import { evaluarSolicitud } from "@/lib/reglas-qms";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { clienteLectura } from "@/lib/supabase/lectura";
 
 export const dynamic = "force-dynamic";
-
-/** Número de solicitud con el formato que exige el CHECK de la base: AAAAQ#####. */
-function numeroDeSolicitud(): string {
-  const anio = new Date().getFullYear();
-  const secuencia = String(Math.floor(Math.random() * 100_000)).padStart(5, "0");
-  return `${anio}Q${secuencia}`;
-}
 
 /**
  * Alta de solicitudes de cotización. Simula el ingreso de una SPQ+.
@@ -76,7 +70,7 @@ export async function POST(peticion: Request) {
   );
 }
 
-/** Consulta del estado de una solicitud por su número (AAAAQ#####). */
+/** Consulta del estado de una solicitud por su número (AAAAS#####). */
 export async function GET(peticion: Request) {
   const numero = new URL(peticion.url).searchParams.get("numero");
   if (!numero) {

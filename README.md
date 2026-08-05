@@ -50,6 +50,7 @@ pnpm dev
 
 ## Antes de una presentación
 
+- [Manual de presentación](docs/superpowers/presentacion/manual-presentacion-poc.md) — montaje de dos monitores y las pruebas en vivo con qué validar en cada pantalla.
 - [Guion cronometrado](docs/superpowers/presentacion/guion-cronometrado.md) — las ocho escenas con tiempos y acciones exactas.
 - [Despliegue](docs/superpowers/presentacion/despliegue.md) — variables de entorno, pasos de despliegue y checklist de humo.
 

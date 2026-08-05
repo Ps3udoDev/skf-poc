@@ -17,6 +17,7 @@ import {
 import { emitirEvento } from "@/lib/metricas/emitir";
 import { consultarInventarioExterno } from "@/lib/mock/inventario";
 import { elegirCsr } from "@/lib/operacion/asignacion";
+import { numeroDeSolicitud } from "@/lib/operacion/numeracion";
 import { evaluarSolicitud } from "@/lib/reglas-qms";
 import { leerSesion } from "@/lib/sesion-demo/leer";
 import type { SesionDemo } from "@/lib/sesion-demo/tipos";
@@ -166,12 +167,6 @@ export async function buscarDesignacion(
   }
 
   return conEstimaciones(await validar(consulta, cantidad), cantidad, sesion);
-}
-
-function numeroDeSolicitud(): string {
-  const anio = new Date().getFullYear();
-  const secuencia = String(Math.floor(Math.random() * 100_000)).padStart(5, "0");
-  return `${anio}Q${secuencia}`;
 }
 
 export async function generarSolicitud(consulta: string, cantidad: number): Promise<string> {

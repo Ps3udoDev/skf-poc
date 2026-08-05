@@ -45,3 +45,4 @@ next-env.d.ts
 
 # espacio de trabajo de subagent-driven-development
 .superpowers/
+graphify-out/

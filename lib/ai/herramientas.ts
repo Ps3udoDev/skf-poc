@@ -5,12 +5,15 @@ import { ahoraSimulada, estadoDePlanta } from "@/lib/estado-fabricas";
 import { estimarTE } from "@/lib/estimador/estimador";
 import {
   existenciasDe,
+  filaDeSolicitud,
   homologosDe,
   obtenerCotizacion,
   obtenerDesignacion,
   plantaCompleta,
   solicitudesFiltradas,
 } from "@/lib/fuentes";
+import { esNumeroDeSolicitud, normalizarNumero } from "@/lib/operacion/numeracion";
+import { vistaDeSolicitud } from "@/lib/operacion/vista-solicitud";
 import { DIAS_SLA, diasHabiles, RUTAS_QMS } from "@/lib/reglas-qms";
 import { leerSesion } from "@/lib/sesion-demo/leer";
 import { validar } from "@/lib/validador/cascada";
@@ -82,11 +85,20 @@ export function HERRAMIENTAS(perfil: PerfilChat) {
     }),
     consultarCotizacion: tool({
       description:
-        "Consulta una cotización por número y calcula días hábiles transcurridos contra el SLA de 4 días.",
+        "Consulta una cotización del histórico por número (formato AAAAQ#####, con Q) y calcula " +
+        "días hábiles transcurridos contra el SLA de 4 días. No sirve para las solicitudes " +
+        "generadas en esta sesión: esas llevan S y van por consultarSolicitud.",
       inputSchema: z.object({ numero: z.string().min(1) }),
       execute: async ({ numero }) => {
-        const cotizacion = await obtenerCotizacion(numero);
-        if (!cotizacion) return { encontrada: false, numero };
+        const limpio = normalizarNumero(numero);
+        const cotizacion = await obtenerCotizacion(limpio);
+        if (!cotizacion) {
+          return {
+            encontrada: false,
+            numero: limpio,
+            pareceSolicitud: esNumeroDeSolicitud(limpio),
+          };
+        }
         const transcurridos = diasHabiles(
           cotizacion.fechaSolicitud,
           cotizacion.fechaRespuesta ? new Date(cotizacion.fechaRespuesta) : new Date(),
@@ -108,6 +120,23 @@ export function HERRAMIENTAS(perfil: PerfilChat) {
               cantidad: cotizacion.cantidad,
             }
           : comun;
+      },
+    }),
+    // Las solicitudes del demo viven en otra tabla que el histórico y llevan
+    // otro prefijo (AAAAS#####). Sin esta herramienta, un cliente que preguntaba
+    // por el número que acababa de recibir del portal caía en
+    // `consultarCotizacion`, que lee `cotizaciones`, y el modelo respondía —con
+    // razón, según lo que veía— que su solicitud no existía.
+    consultarSolicitud: tool({
+      description:
+        "Consulta una solicitud generada en esta sesión por su número (formato AAAAS#####, con S). " +
+        "Devuelve su estado y los días hábiles transcurridos contra el SLA de 4 días. " +
+        "Úsala siempre para números con S; los números con Q son cotizaciones del histórico y van por consultarCotizacion.",
+      inputSchema: z.object({ numero: z.string().min(1) }),
+      execute: async ({ numero }) => {
+        const limpio = normalizarNumero(numero);
+        const [solicitud, sesion] = await Promise.all([filaDeSolicitud(limpio), leerSesion()]);
+        return vistaDeSolicitud(limpio, solicitud, sesion.iniciadaEn, perfil);
       },
     }),
     consultarProcedimiento: tool({
