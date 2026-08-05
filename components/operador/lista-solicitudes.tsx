@@ -40,6 +40,8 @@ export function ListaSolicitudes({ solicitudes }: { solicitudes: SolicitudResume
             <th className="px-4 py-3">Designación capturada</th>
             <th className="px-4 py-3">Cantidad</th>
             <th className="px-4 py-3">Antigüedad</th>
+            <th className="px-4 py-3">CSR</th>
+            <th className="px-4 py-3">Estado</th>
             <th className="px-4 py-3">Clasificación QMS</th>
           </tr>
         </thead>
@@ -50,6 +52,28 @@ export function ListaSolicitudes({ solicitudes }: { solicitudes: SolicitudResume
               <td className="px-4 py-4 designacion text-texto">{solicitud.designacionTexto}</td>
               <td className="px-4 py-4 text-texto">{solicitud.cantidad}</td>
               <td className="px-4 py-4 text-texto-tenue">{antiguedad(solicitud.creadaEn)}</td>
+              <td className="px-4 py-4">
+                {solicitud.csrAsignado ? (
+                  <span className="designacion text-texto">{solicitud.csrAsignado}</span>
+                ) : (
+                  <span className="text-texto-tenue">Sin asignar</span>
+                )}
+              </td>
+              <td className="px-4 py-4">
+                {solicitud.atendidaEn === null ? (
+                  <span className="text-texto">Abierta</span>
+                ) : (
+                  <span
+                    className={
+                      solicitud.resultado === "cotizada"
+                        ? "inline-flex rounded-full border border-confirmacion bg-confirmacion-suave px-2.5 py-1 text-xs font-medium text-confirmacion"
+                        : "inline-flex rounded-full border border-borde bg-fondo-sutil px-2.5 py-1 text-xs font-medium text-texto"
+                    }
+                  >
+                    {solicitud.resultado === "cotizada" ? "Cotizada" : "Declinada"}
+                  </span>
+                )}
+              </td>
               <td className="px-4 py-4">
                 <span className="inline-flex rounded-full border border-borde bg-fondo-sutil px-2.5 py-1 text-xs font-medium text-texto">
                   {ETIQUETAS[solicitud.clasificacionQms ?? ""] ??
