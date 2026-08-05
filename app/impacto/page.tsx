@@ -2,16 +2,18 @@ import { Tablero } from "@/components/impacto/tablero";
 import { BarraSuperior } from "@/components/marco/barra-superior";
 import { ProveedorSesion } from "@/components/sesion/proveedor-sesion";
 import { todasLasPlantas } from "@/lib/fuentes";
+import { refrescarPanelOperativo } from "@/lib/metricas/acciones";
 import { indicadoresDeSesion } from "@/lib/metricas/indicadores";
 import { leerSesion } from "@/lib/sesion-demo/leer";
 
 export const dynamic = "force-dynamic";
 
 export default async function PaginaImpacto() {
-  const [sesion, plantas, indicadores] = await Promise.all([
+  const [sesion, plantas, indicadores, panel] = await Promise.all([
     leerSesion(),
     todasLasPlantas(),
     indicadoresDeSesion(),
+    refrescarPanelOperativo(),
   ]);
 
   return (
@@ -31,7 +33,7 @@ export default async function PaginaImpacto() {
               las reales; este tablero es donde vivirán.
             </p>
           </div>
-          <Tablero indicadoresIniciales={indicadores} panelInicial={null} />
+          <Tablero indicadoresIniciales={indicadores} panelInicial={panel} />
         </main>
       </div>
     </ProveedorSesion>

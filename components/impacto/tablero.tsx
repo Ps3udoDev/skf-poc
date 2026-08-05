@@ -1,7 +1,10 @@
 "use client";
 
 import { BusquedasPorHora } from "@/components/impacto/busquedas-por-hora";
+import { CargaCsrPanel } from "@/components/impacto/carga-csr";
+import { CumplimientoSlaPanel } from "@/components/impacto/cumplimiento-sla";
 import { TarjetaMetrica } from "@/components/impacto/tarjeta-metrica";
+import { VentanasSemana } from "@/components/impacto/ventanas-semana";
 import { useIndicadores } from "@/components/metricas/uso-indicadores";
 import { type Indicadores, MINUTOS_POR_SOLICITUD } from "@/lib/metricas/calculo";
 import type { PanelOperativo } from "@/lib/metricas/operacion";
@@ -15,7 +18,7 @@ export function Tablero({
   indicadoresIniciales: Indicadores;
   panelInicial: PanelOperativo | null;
 }) {
-  const { indicadores } = useIndicadores(indicadoresIniciales, panelInicial);
+  const { indicadores, panel } = useIndicadores(indicadoresIniciales, panelInicial);
 
   return (
     <div className="space-y-6">
@@ -64,6 +67,19 @@ export function Tablero({
       </section>
 
       <BusquedasPorHora datos={indicadores.busquedasPorHora} />
+
+      {panel && (
+        <section aria-labelledby="titulo-operacion" className="space-y-6">
+          <h2 id="titulo-operacion" className="text-lg font-semibold text-texto">
+            Operación
+          </h2>
+          <div className="grid gap-6 xl:grid-cols-2">
+            <CargaCsrPanel cargas={panel.cargas} sinAsignar={panel.sinAsignar} />
+            <CumplimientoSlaPanel sla={panel.sla} />
+          </div>
+          <VentanasSemana franjas={panel.franjas} minutosSemana={panel.minutosVentanaSemana} />
+        </section>
+      )}
     </div>
   );
 }
