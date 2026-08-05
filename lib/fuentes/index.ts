@@ -3,5 +3,6 @@ export * from "./cotizaciones";
 export * from "./designaciones";
 export * from "./homologos";
 export * from "./inventario";
+export * from "./operadores";
 export * from "./plantas";
 export * from "./solicitudes";
