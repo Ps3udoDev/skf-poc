@@ -3,7 +3,6 @@
 import { BusquedasPorHora } from "@/components/impacto/busquedas-por-hora";
 import { TarjetaMetrica } from "@/components/impacto/tarjeta-metrica";
 import { useIndicadores } from "@/components/metricas/uso-indicadores";
-import { IndicadorCanal } from "@/components/sesion/indicador-canal";
 import { type Indicadores, MINUTOS_POR_SOLICITUD } from "@/lib/metricas/calculo";
 import type { PanelOperativo } from "@/lib/metricas/operacion";
 
@@ -20,10 +19,6 @@ export function Tablero({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <IndicadorCanal />
-      </div>
-
       <section aria-labelledby="titulo-metricas">
         <h2 id="titulo-metricas" className="text-lg font-semibold text-texto">
           Impacto de la sesión

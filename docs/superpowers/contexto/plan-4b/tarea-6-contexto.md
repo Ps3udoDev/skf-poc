@@ -2,12 +2,15 @@
 
 ## Estado
 
-Completada, con una salvedad: el Paso 6 del brief (verificación visual en el navegador, con el flujo `/portal` → aceptar un candidato → mirar `/impacto` sin recargar) no se pudo ejecutar porque este entorno no tiene la extensión de Chrome conectada (`list_connected_browsers` devolvió vacío). En su lugar se levantó `pnpm dev` y se verificó con `curl` que `/impacto` responde 200 y que su HTML contiene los rótulos esperados (ver «Cómo verificar» y «Verificación manual pendiente»).
+Completada, con dos salvedades:
+
+1. El Paso 6 del brief (verificación visual en el navegador, con el flujo `/portal` → aceptar un candidato → mirar `/impacto` sin recargar) no se pudo ejecutar porque este entorno no tiene la extensión de Chrome conectada (`list_connected_browsers` devolvió vacío). En su lugar se levantó `pnpm dev` y se verificó con `curl` que `/impacto` responde 200 y que su HTML contiene los rótulos esperados (ver «Cómo verificar» y «Verificación manual pendiente»).
+2. **Enmienda posterior a la implementación inicial:** el Paso 4 del brief mandaba montar `<IndicadorCanal />` en `<Tablero>`. La revisión de código detectó que ese componente contradice dos cosas explícitas — la regla de color del propio brief («verde significa confirmación y solo lo lleva el bloque de confirmaciones de homólogo») y el docstring de `<IndicadorCanal>`, que dice ser «SOLO para el panel `/demo` del presentador: las pantallas que ve el cliente no muestran jamás la fontanería del demo» —. Se elevó al usuario, que resolvió: gana la regla de color. Se quitó `<IndicadorCanal />` de `/impacto`; ver «Por qué se quitó `<IndicadorCanal />` del tablero» más abajo. Esto es una **desviación deliberada del Paso 4 del brief**, no un olvido.
 
 ## Qué entrega esta tarea
 
 - `app/impacto/page.tsx`: la ruta `/impacto`, Server Component que lee `leerSesion()`, `todasLasPlantas()` e `indicadoresDeSesion()` en paralelo y monta `<Tablero>` dentro de `<ProveedorSesion>`, con `panelInicial={null}`.
-- `components/impacto/tablero.tsx`: `<Tablero>`, el Client Component que llama a `useIndicadores()` (Tarea 5) y pinta el indicador de canal, las siete tarjetas de métrica y la gráfica de búsquedas por hora.
+- `components/impacto/tablero.tsx`: `<Tablero>`, el Client Component que llama a `useIndicadores()` (Tarea 5) y pinta las siete tarjetas de métrica y la gráfica de búsquedas por hora. No pinta ningún indicador de estado de canal (ver «Por qué se quitó `<IndicadorCanal />` del tablero»).
 - `components/impacto/tarjeta-metrica.tsx`: `<TarjetaMetrica>`, la tarjeta genérica con etiqueta, valor grande, nota opcional y leyenda («sobre datos simulados» por defecto).
 - `components/impacto/busquedas-por-hora.tsx`: `<BusquedasPorHora>`, la gráfica de barras de Recharts con las 24 horas siempre presentes (rellenando con 0 las que no tienen datos).
 - `components/marco/barra-superior.tsx`: se amplió el tipo de `perfil` a `"cliente" | "operador" | "impacto"` y se añadió el tercer enlace de la pestaña, «Impacto», después de «Servicio al Cliente». `/demo` sigue sin enlace.
@@ -24,11 +27,19 @@ Completada, con una salvedad: el Paso 6 del brief (verificación visual en el na
 
 ### Por qué ningún color ámbar aparece en esta pantalla
 
-Se usó `<IndicadorCanal>` tal cual existía (Plan 3), que solo pinta `confirmacion` (verde, canal suscrito), `texto-tenue` (conectando) o `error` (rojo, canal caído) — nunca `desconexion` (ámbar). Ninguno de los componentes nuevos de esta tarea (`<TarjetaMetrica>`, `<BusquedasPorHora>`, `<Tablero>`) referencia el token `desconexion` ni ningún color crudo de Tailwind: los fondos, bordes y textos usan `primario`, `primario-suave`, `texto`, `texto-tenue`, `borde`, `fondo` y `fondo-sutil`, confirmados contra `app/globals.css`. Se verificó con `grep` sobre el HTML servido que la cadena `desconexion` no aparece en absoluto en `/impacto`.
+Ninguno de los componentes de esta tarea (`<TarjetaMetrica>`, `<BusquedasPorHora>`, `<Tablero>`) referencia el token `desconexion` ni ningún color crudo de Tailwind: los fondos, bordes y textos usan `primario`, `primario-suave`, `texto`, `texto-tenue`, `borde`, `fondo` y `fondo-sutil`, confirmados contra `app/globals.css`. Se verificó con `grep` sobre el HTML servido que la cadena `desconexion` no aparece en absoluto en `/impacto`.
 
 ### Por qué «Resueltas sin solicitud» usa el color primario y no verde
 
-`tasaResueltasSinSolicitud` es una tasa alta de resolución sin intervención humana — una buena noticia operativa, pero no es una confirmación de homólogo. El verde (`confirmacion`) en esta pantalla está reservado exclusivamente a la tarjeta «Errores de homólogo prevenidos» a través de... en realidad ninguna tarjeta de métrica usa verde: la única aparición de `confirmacion` en `/impacto` es el bloque verde de `<IndicadorCanal>` cuando el canal está suscrito, que no es una métrica de negocio sino el estado de la conexión. Las tarjetas usan `destacada` (borde y fondo `primario`/`primario-suave`) solo en «Solicitudes evitadas», siguiendo el código exacto del brief; el resto usa el estilo neutro (`border-borde bg-fondo`).
+`tasaResueltasSinSolicitud` es una tasa alta de resolución sin intervención humana — una buena noticia operativa, pero no es una confirmación de homólogo. Ninguna tarjeta de métrica usa verde (`confirmacion`): las tarjetas usan `destacada` (borde y fondo `primario`/`primario-suave`) solo en «Solicitudes evitadas», siguiendo el código exacto del brief; el resto usa el estilo neutro (`border-borde bg-fondo`). Con `<IndicadorCanal />` fuera del tablero (ver siguiente sección), `/impacto` no tiene **ninguna** aparición del token `confirmacion` en absoluto: el verde queda completamente reservado a donde sí significa una confirmación de homólogo real, que en esta pantalla ni siquiera es un color — es la cifra neutra de la tarjeta «Errores de homólogo prevenidos».
+
+### Por qué se quitó `<IndicadorCanal />` del tablero (desviación deliberada del Paso 4 del brief)
+
+La implementación inicial de esta tarea siguió el Paso 4 del brief literalmente y montó `<IndicadorCanal />` dentro de `<Tablero>`, en un `<div className="flex justify-end">` que solo existía para colocarlo. La revisión de código encontró una contradicción real, no cosmética: `<IndicadorCanal>` (`components/sesion/indicador-canal.tsx`) pinta verde (`confirmacion`/`bg-confirmacion-suave`) cuando el canal Realtime está `suscrito` — un estado de fontanería de conexión, no una confirmación de homólogo — y en el peor caso pinta un badge rojo de «Canal con error: activo el respaldo por sondeo» delante del cliente. Esto choca con dos cosas explícitas del propio plan: (1) la regla de color del brief («verde significa confirmación y solo lo lleva el bloque de confirmaciones de homólogo»), y (2) el docstring del propio componente, que declara ser «SOLO para el panel `/demo` del presentador: las pantallas que ve el cliente no muestran jamás la fontanería del demo».
+
+El hallazgo se elevó al usuario porque contradecía el texto literal del plan (que sí mandaba montarlo). El usuario decidió: gana la regla de color. Se quitó `<IndicadorCanal />` de `components/impacto/tablero.tsx`, junto con el `<div className="flex justify-end">` que solo existía para contenerlo, y no se sustituyó por ningún otro indicador de salud de conexión: la señal de estado del canal vive en `/demo` (que no se proyecta), y si el canal Realtime cae, el respaldo por sondeo de `useIndicadores()` (`MS_INTERVALO_SONDEO`, cada 2 s, ver Tarea 5) sigue refrescando las cifras igual — el usuario proyectado nunca necesita saber por qué mecanismo se actualizó.
+
+`components/sesion/indicador-canal.tsx` y su uso en `/demo` **no se tocaron**: siguen exactamente como los dejó el Plan 3/Tarea 5.
 
 ### Por qué los 12 minutos no se repiten a mano
 
@@ -86,7 +97,7 @@ function Tablero({
 }): JSX.Element
 ```
 
-- Debe montarse dentro de `<ProveedorSesion>` (usa `<IndicadorCanal>`, que consume `useSesion()`).
+- No pinta ningún indicador de estado de canal: `<IndicadorCanal>` se quitó deliberadamente (ver «Por qué se quitó `<IndicadorCanal />` del tablero»). `<Tablero>` ya no depende de `useSesion()`/`<ProveedorSesion>` directamente, aunque `app/impacto/page.tsx` lo sigue montando dentro de `<ProveedorSesion>` porque `<BarraSuperior>` sí lo necesita (`IndicadorPlantas`, `IndicadorModo`, `DistintivoDemo`).
 - Internamente llama a `useIndicadores(indicadoresIniciales, panelInicial)` y solo desestructura `{ indicadores }` — **no** desestructura `panel` todavía.
 - **Punto de extensión para la Tarea 7:** el panel operativo se monta dentro de este mismo componente. La Tarea 7 debe:
   1. Desestructurar también `panel` de `useIndicadores(...)`.
@@ -101,7 +112,7 @@ function Tablero({
 - No se generaron tests (directiva explícita del Plan 4B).
 - No se editó ninguna migración.
 - No se introdujo ninguna escritura: toda la pantalla es de solo lectura (Server Actions de lectura vía `useIndicadores()`, más las tres funciones de `page.tsx`).
-- El único carácter que se desvía del código literal del brief es la anotación de tipo quitada en `formatter={(valor) => ...}` de `<BusquedasPorHora>` (ver «Decisiones tomadas»); todo lo demás —nombres, textos, clases de Tailwind, comentarios— es literal.
+- El código se desvía del brief en dos puntos, ambos documentados en «Decisiones tomadas»: (1) la anotación de tipo quitada en `formatter={(valor) => ...}` de `<BusquedasPorHora>`, necesaria para que `pnpm build` compilara; (2) la eliminación de `<IndicadorCanal />` del Paso 4, una desviación deliberada resuelta por el usuario tras un hallazgo de revisión, no un olvido. Todo lo demás —nombres, textos, clases de Tailwind, comentarios— es literal.
 
 ## Cómo verificar
 
