@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useIndicadores } from "@/components/metricas/uso-indicadores";
 import { IndicadorCanal } from "@/components/sesion/indicador-canal";
 import { useSesion } from "@/components/sesion/proveedor-sesion";
 import { HUSO_MEXICO } from "@/lib/estado-fabricas";
@@ -15,8 +16,11 @@ const FORMATO_HORA = new Intl.DateTimeFormat("es-MX", {
   timeZone: HUSO_MEXICO,
 });
 
-export function EstadoSesion({ indicadores }: { indicadores: Indicadores }) {
+export function EstadoSesion({ indicadores: iniciales }: { indicadores: Indicadores }) {
   const { sesion, plantas, estados, ahora } = useSesion();
+  // Cierra la deuda del Plan 3: hasta ahora estas cuatro cifras eran la
+  // fotografía del momento en que se cargó la página.
+  const { indicadores } = useIndicadores(iniciales);
   const [confirmando, setConfirmando] = useState(false);
   const [enVuelo, iniciar] = useTransition();
   const enVentana = plantas.filter((planta) => estados[planta.pdiv] === "ventana");
