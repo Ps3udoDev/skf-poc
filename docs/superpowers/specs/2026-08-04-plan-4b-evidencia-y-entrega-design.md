@@ -60,10 +60,33 @@ plan las verifica:
    guionado.
 8. Toda cifra lleva «sobre datos simulados».
 
-## 4. Esquema: 4B no abre migración
+## 4. Esquema: una sola migración, y no de datos
 
-Las migraciones vigentes llegan hasta `000008` y no se editan. El hueco `000004`
-sigue siendo deliberado. Nada de 4B necesita tabla ni columna nueva:
+Las migraciones vigentes llegan hasta `000008` y **no se editan**. El hueco
+`000004` sigue siendo deliberado. Ninguna pieza de 4B necesita tabla ni columna
+nueva.
+
+Sí necesita una línea de publicación. `eventos_demo` **no pertenece a
+`supabase_realtime`**: la única tabla publicada es `sesion_demo`
+(`20260803000001_extensiones_y_sesion_demo.sql:82`). El patrón que fija el
+contrato §7.1 —el canal invalida y la pantalla recalcula— no puede funcionar
+sobre una tabla que no publica cambios, así que `/impacto` se quedaría dependiendo
+del sondeo de respaldo y la escena 6 mostraría hasta dos segundos de retraso
+frente al hecho que la produce.
+
+Se abre `000009` con una sola sentencia aditiva:
+
+```sql
+alter publication supabase_realtime add table eventos_demo;
+```
+
+Es exactamente el caso que el contrato §4 previó al dejar la puerta abierta:
+«si aparece una necesidad real de esquema, se abre `000009` y se justifica en el
+plan; no se toca nada aplicado». No crea, altera ni borra ninguna tabla, y la
+política de lectura pública que Realtime necesita para entregar a `anon` ya
+existe desde `000006`.
+
+El resto sale de lo que ya está:
 
 | Pieza de 4B | De dónde sale |
 |---|---|
@@ -174,6 +197,11 @@ ronda las 9000. Una lectura sin paginar mediría en silencio solo la primera
 página y daría una tasa plausible pero falsa. La fuente pagina con `.range()`
 sobre `fecha_solicitud, fecha_respuesta` —dos columnas, nada más— hasta agotar
 la tabla, con un tope de páginas que evita un bucle infinito si la base creciera.
+
+El resultado se memoiza por proceso: nada del demo escribe en `cotizaciones`, así
+que el histórico es inmutable durante la presentación. Sin memoizar, el sondeo de
+respaldo repaginaría nueve mil filas cada dos segundos mientras la pantalla está
+proyectada. `reiniciarSesion()` no lo invalida porque no toca el histórico.
 
 ### 6.3 `lib/estado-fabricas/semana.ts` (nuevo, puro)
 
