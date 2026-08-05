@@ -113,6 +113,7 @@ export async function cumplimientoSla(): Promise<CumplimientoSla> {
 
   const cliente = clienteLectura();
   const filas: FilaSla[] = [];
+  let agotada = false;
   for (let pagina = 0; pagina < PAGINAS_MAXIMAS; pagina++) {
     const inicio = pagina * FILAS_POR_PAGINA;
     const { data, error } = await cliente
@@ -123,7 +124,16 @@ export async function cumplimientoSla(): Promise<CumplimientoSla> {
     lanzarSiError(error, "obtener el histórico de cumplimiento del SLA");
     const lote = (data ?? []) as unknown as FilaSla[];
     filas.push(...lote);
-    if (lote.length < FILAS_POR_PAGINA) break;
+    if (lote.length < FILAS_POR_PAGINA) {
+      agotada = true;
+      break;
+    }
+  }
+  if (!agotada) {
+    throw new Error(
+      `El histórico de cotizaciones superó el tope de ${PAGINAS_MAXIMAS} páginas ` +
+        `(${PAGINAS_MAXIMAS * FILAS_POR_PAGINA} filas) sin agotarse: la cifra de cumplimiento del SLA sería parcial y no se calcula.`,
+    );
   }
 
   const dias: number[] = [];
