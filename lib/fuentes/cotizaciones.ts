@@ -1,3 +1,4 @@
+import { DIAS_SLA, diasHabiles } from "@/lib/reglas-qms";
 import { clienteLectura } from "@/lib/supabase/lectura";
 import { lanzarSiError } from "./errores";
 
@@ -74,4 +75,76 @@ export async function obtenerCotizacion(numero: string): Promise<Cotizacion | nu
     teSemanas: f.te_semanas === null ? null : Number(f.te_semanas),
     precio: f.precio === null ? null : Number(f.precio),
   };
+}
+
+export interface CumplimientoSla {
+  /** Cotizaciones con `fecha_respuesta`. Son las únicas medibles. */
+  respondidas: number;
+  dentroDelSla: number;
+  /** 0..1. Cero cuando no hay respondidas: «NaN%» proyectado es peor que un 0. */
+  tasa: number;
+  pendientes: number;
+  medianaDiasHabiles: number;
+}
+
+/**
+ * PostgREST corta en 1000 filas por defecto y el histórico sintético ronda las
+ * 9000. Sin paginar, esta función mediría solo la primera página y devolvería
+ * una tasa creíble pero falsa.
+ */
+const FILAS_POR_PAGINA = 1000;
+const PAGINAS_MAXIMAS = 20;
+
+/**
+ * Memoización por proceso. Nada del demo escribe en `cotizaciones`: el
+ * histórico es inmutable durante la presentación, y el sondeo de respaldo de
+ * `/impacto` corre cada dos segundos. `reiniciarSesion()` no lo invalida porque
+ * no toca el histórico.
+ */
+let memoria: CumplimientoSla | null = null;
+
+interface FilaSla {
+  fecha_solicitud: string;
+  fecha_respuesta: string | null;
+}
+
+export async function cumplimientoSla(): Promise<CumplimientoSla> {
+  if (memoria) return memoria;
+
+  const cliente = clienteLectura();
+  const filas: FilaSla[] = [];
+  for (let pagina = 0; pagina < PAGINAS_MAXIMAS; pagina++) {
+    const inicio = pagina * FILAS_POR_PAGINA;
+    const { data, error } = await cliente
+      .from("cotizaciones")
+      .select("fecha_solicitud, fecha_respuesta")
+      .order("fecha_solicitud")
+      .range(inicio, inicio + FILAS_POR_PAGINA - 1);
+    lanzarSiError(error, "obtener el histórico de cumplimiento del SLA");
+    const lote = (data ?? []) as unknown as FilaSla[];
+    filas.push(...lote);
+    if (lote.length < FILAS_POR_PAGINA) break;
+  }
+
+  const dias: number[] = [];
+  let pendientes = 0;
+  for (const fila of filas) {
+    if (!fila.fecha_respuesta) {
+      pendientes++;
+      continue;
+    }
+    dias.push(diasHabiles(fila.fecha_solicitud, fila.fecha_respuesta));
+  }
+
+  const dentro = dias.filter((d) => d <= DIAS_SLA).length;
+  const ordenados = [...dias].sort((a, b) => a - b);
+
+  memoria = {
+    respondidas: dias.length,
+    dentroDelSla: dentro,
+    tasa: dias.length === 0 ? 0 : dentro / dias.length,
+    pendientes,
+    medianaDiasHabiles: ordenados.length === 0 ? 0 : ordenados[Math.floor(ordenados.length / 2)],
+  };
+  return memoria;
 }
