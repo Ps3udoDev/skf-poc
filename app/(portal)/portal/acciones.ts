@@ -7,6 +7,7 @@ import { estimarTE } from "@/lib/estimador/estimador";
 import {
   cargaPorCsr,
   construirContexto,
+  homologosDe,
   idDeOperador,
   obtenerDesignacion,
   plantaCompleta,
@@ -19,6 +20,8 @@ import { leerSesion } from "@/lib/sesion-demo/leer";
 import type { SesionDemo } from "@/lib/sesion-demo/tipos";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { validar } from "@/lib/validador/cascada";
+import type { Confirmacion } from "@/lib/validador/confirmacion";
+import { construirConfirmacion } from "@/lib/validador/confirmacion";
 import { construirSugerencia } from "@/lib/validador/sugerencia";
 import type { ResultadoValidacion } from "@/lib/validador/tipos";
 
@@ -179,4 +182,50 @@ export async function generarSolicitud(consulta: string, cantidad: number): Prom
 export async function registrarSolicitudEvitada(codigo: string): Promise<void> {
   await emitirEvento({ tipo: "solicitud_evitada", perfil: "cliente", designacion: codigo });
   revalidatePath("/operador");
+}
+
+/** Equivalencias registradas de una designación, ya convertidas en pasos. */
+export async function equivalenciasDe(codigo: string): Promise<Confirmacion[]> {
+  const homologos = await homologosDe(codigo);
+  return homologos.map(construirConfirmacion);
+}
+
+/**
+ * Cierre de la confirmación guiada.
+ *
+ * Se vuelve a resolver el homólogo en el servidor en vez de confiar en lo que
+ * manda el navegador: la equivalencia tiene que existir en la base, igual que
+ * el validador solo elige designaciones del catálogo.
+ */
+export async function confirmarHomologo(
+  origen: string,
+  equivalente: string,
+  cantidad: number,
+): Promise<{ designacion: string; requiereIngenieriaVentas: boolean }> {
+  const homologos = await homologosDe(origen);
+  const elegido = homologos.find((homologo) => homologo.equivalente === equivalente);
+  if (!elegido) throw new Error(`${equivalente} no es un homólogo registrado de ${origen}.`);
+
+  const designacion = await obtenerDesignacion(equivalente);
+  if (!designacion) throw new Error(`${equivalente} no existe en el catálogo.`);
+
+  const confirmacion = construirConfirmacion(elegido);
+  await emitirEvento({
+    tipo: "confirmacion_homologo",
+    perfil: "cliente",
+    designacion: origen,
+    pdiv: designacion.pdiv,
+    detalle: {
+      equivalente,
+      cantidad,
+      pasos: confirmacion.pasos.length,
+      requiereIngenieriaVentas: confirmacion.requiereIngenieriaVentas,
+    },
+  });
+  revalidatePath("/operador");
+
+  return {
+    designacion: equivalente,
+    requiereIngenieriaVentas: confirmacion.requiereIngenieriaVentas,
+  };
 }

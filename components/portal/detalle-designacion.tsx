@@ -5,13 +5,16 @@ import { registrarSolicitudEvitada } from "@/app/(portal)/portal/acciones";
 import { EstimacionTE } from "@/components/estimador/estimacion-te";
 import type { Estimacion } from "@/lib/estimador/calculo";
 import type { Sugerencia } from "@/lib/validador/tipos";
+import { ConfirmacionHomologo } from "./confirmacion-homologo";
 
 export function DetalleDesignacion({
   sugerencia,
   estimacion,
+  cantidad,
 }: {
   sugerencia: Sugerencia;
   estimacion: Estimacion | null;
+  cantidad: number;
 }) {
   const [registrada, setRegistrada] = useState(false);
   const [enVuelo, iniciar] = useTransition();
@@ -52,6 +55,7 @@ export function DetalleDesignacion({
         >
           {registrada ? "Consulta resuelta" : enVuelo ? "Registrando…" : "Usar esta designación"}
         </button>
+        <ConfirmacionHomologo codigo={designacion.designacion} cantidad={cantidad} />
       </div>
       {estimacion ? (
         <EstimacionTE estimacion={estimacion} />
