@@ -1,6 +1,7 @@
 export * from "./contexto";
 export * from "./cotizaciones";
 export * from "./designaciones";
+export * from "./eventos";
 export * from "./homologos";
 export * from "./intenciones";
 export * from "./inventario";

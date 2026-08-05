@@ -7,10 +7,12 @@ import {
   construirContexto,
   filaDeSolicitud,
   type Homologo,
+  hayAvisoDeOperador,
   homologosDe,
   idDeOperador,
   type SolicitudResumen,
 } from "@/lib/fuentes";
+import { emitirEvento } from "@/lib/metricas/emitir";
 import {
   type ContextoSolicitud,
   type EvaluacionQMS,
@@ -50,6 +52,31 @@ export async function detalleDeSolicitud(numero: string): Promise<DetalleSolicit
     codigo === null ? Promise.resolve<Homologo[]>([]) : homologosDe(codigo),
     codigo === null ? Promise.resolve<Estimacion | null>(null) : estimarTE(codigo, fila.cantidad),
   ]);
+
+  // Una sola vez por solicitud: abrir el detalle cinco veces no son cinco
+  // avisos anticipados, y el dashboard del Plan 4B cuenta estos eventos.
+  const pdiv = contexto.designacion?.pdiv ?? null;
+  if (evaluacion.ruta === "declinar_moq" && !(await hayAvisoDeOperador("aviso_moq", numero))) {
+    await emitirEvento({
+      tipo: "aviso_moq",
+      perfil: "operador",
+      designacion: fila.designacionTexto,
+      pdiv,
+      detalle: { numero, cantidad: fila.cantidad },
+    });
+  }
+  if (
+    evaluacion.avisos.some((aviso) => aviso.tipo === "pack_quantity_ajustado") &&
+    !(await hayAvisoDeOperador("aviso_pack_quantity", numero))
+  ) {
+    await emitirEvento({
+      tipo: "aviso_pack_quantity",
+      perfil: "operador",
+      designacion: fila.designacionTexto,
+      pdiv,
+      detalle: { numero, cantidad: fila.cantidad, cantidadEfectiva: evaluacion.cantidadEfectiva },
+    });
+  }
 
   return { fila, contexto, evaluacion, homologos, estimacion };
 }

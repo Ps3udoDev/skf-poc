@@ -84,6 +84,7 @@ export function ResultadoBusqueda({
               key={sugerencia.designacion.designacion}
               sugerencia={sugerencia}
               cantidad={cantidad}
+              estrategia={resultado.estrategia}
               estimacion={resultado.estimaciones[sugerencia.designacion.designacion] ?? null}
               plantaEnVentana={
                 resultado.plantasEnVentana[sugerencia.designacion.designacion] ?? null

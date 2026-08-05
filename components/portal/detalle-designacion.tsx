@@ -4,18 +4,20 @@ import { useState, useTransition } from "react";
 import { encolarIntencion, registrarSolicitudEvitada } from "@/app/(portal)/portal/acciones";
 import { EstimacionTE } from "@/components/estimador/estimacion-te";
 import type { Estimacion } from "@/lib/estimador/calculo";
-import type { Sugerencia } from "@/lib/validador/tipos";
+import type { Estrategia, Sugerencia } from "@/lib/validador/tipos";
 import { ConfirmacionHomologo } from "./confirmacion-homologo";
 
 export function DetalleDesignacion({
   sugerencia,
   estimacion,
   cantidad,
+  estrategia,
   plantaEnVentana,
 }: {
   sugerencia: Sugerencia;
   estimacion: Estimacion | null;
   cantidad: number;
+  estrategia: Estrategia;
   plantaEnVentana: { pdiv: string; planta: string } | null;
 }) {
   const [registrada, setRegistrada] = useState(false);
@@ -47,7 +49,7 @@ export function DetalleDesignacion({
           disabled={enVuelo || registrada}
           onClick={() =>
             iniciar(async () => {
-              await registrarSolicitudEvitada(designacion.designacion);
+              await registrarSolicitudEvitada(designacion.designacion, estrategia);
               setRegistrada(true);
             })
           }
